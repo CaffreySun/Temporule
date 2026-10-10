@@ -88,7 +88,7 @@ Temporule/
 
 ## 5. Git 与提交规范
 
-- 主分支 `main`；直接推 main 仅限文档与规格修正；代码改动走分支 + PR/MR
+- 主分支 `main`；**单人维护期**：代码改动允许 main 直接提交，条件是——切片原子提交（一个逻辑切片一个 commit）、提交前 `make verify` 绿、Conventional Commits；**协作期**恢复分支 + PR/MR 流程。并行子代理共享同一工作树，无法一人一分支，是单人期例外的直接原因
 - **Conventional Commits**：`feat(cli): 新增 snooze 子命令`；`scope` ∈ {core, cli, gui, app, build, docs, spec}
 - 提交信息中文或英文均可，描述**行为**而非改动列表
 - 单次提交 = 一个逻辑切片；禁止无关杂烩提交

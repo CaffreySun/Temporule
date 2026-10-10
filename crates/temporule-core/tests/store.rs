@@ -2,6 +2,7 @@
 
 use chrono::{DateTime, Local, NaiveTime, TimeZone};
 use temporule_core::model::{Delivery, PopupAlert, Reminder, Repeat, Schedule};
+use temporule_core::settings::AppSettings;
 use temporule_core::store::Store;
 
 fn dt(y: i32, mo: u32, d: u32, h: u32, mi: u32) -> DateTime<Local> {
@@ -292,4 +293,54 @@ fn state_save_and_load_round_trip() {
     let tick = dt(2026, 6, 1, 12, 0);
     store.save_state(tick).unwrap();
     assert_eq!(store.load_state(), Some(tick));
+}
+
+#[test]
+fn settings_load_returns_defaults_when_file_missing() {
+    let dir = tempfile::tempdir().unwrap();
+    let store = Store::open(dir.path()).unwrap();
+    assert_eq!(store.load_settings().unwrap(), AppSettings::default());
+}
+
+#[test]
+fn settings_save_and_load_round_trip_preserves_values() {
+    let dir = tempfile::tempdir().unwrap();
+    let store = Store::open(dir.path()).unwrap();
+    let settings = AppSettings {
+        launch_at_login: true,
+        default_sound: false,
+        dashboard_hide_on_blur: false,
+    };
+    store.save_settings(&settings).unwrap();
+    assert_eq!(store.load_settings().unwrap(), settings);
+    assert!(dir.path().join("settings.json").exists());
+}
+
+#[test]
+fn settings_corrupt_file_is_backed_up_and_defaults_returned() {
+    let dir = tempfile::tempdir().unwrap();
+    let store = Store::open(dir.path()).unwrap();
+    std::fs::write(dir.path().join("settings.json"), "{ 损坏").unwrap();
+
+    assert_eq!(store.load_settings().unwrap(), AppSettings::default());
+    // 损坏现场保留为 *.corrupt-* 备份，原文件不再存在
+    assert!(!dir.path().join("settings.json").exists());
+    assert!(std::fs::read_dir(dir.path())
+        .unwrap()
+        .filter_map(|e| e.ok())
+        .any(|e| e
+            .file_name()
+            .to_string_lossy()
+            .starts_with("settings.json.corrupt-")));
+}
+
+#[test]
+fn settings_save_leaves_no_tmp_files_behind() {
+    let dir = tempfile::tempdir().unwrap();
+    let store = Store::open(dir.path()).unwrap();
+    store.save_settings(&AppSettings::default()).unwrap();
+    assert!(std::fs::read_dir(dir.path())
+        .unwrap()
+        .filter_map(|e| e.ok())
+        .all(|e| !e.file_name().to_string_lossy().ends_with(".tmp")));
 }

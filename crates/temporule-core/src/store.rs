@@ -1,7 +1,8 @@
 //! 存储层：JSON 原子写 + jsonl 历史。
 //!
 //! 公开接缝：[`Store`] 的 `load` / `save` / `append_history` / `read_history` /
-//! `truncate_history` / `add_snooze` / `snoozes_due` / `remove_snooze` / `load_state` / `save_state`。
+//! `truncate_history` / `add_snooze` / `snoozes_due` / `remove_snooze` / `load_state` / `save_state` /
+//! `load_settings` / `save_settings`。
 //! 所有写入走「唯一 tmp + fsync + rename」原子写，`reminders.json` 另有 rev 守卫防止过期快照覆盖。
 
 use std::fs;
@@ -11,6 +12,7 @@ use std::path::{Path, PathBuf};
 use serde::{Deserialize, Serialize};
 
 use crate::model::{HistoryEntry, Reminder, SnoozeRecord};
+use crate::settings::AppSettings;
 
 /// 提醒数据文件名（`{ version, rev, reminders }`）。
 pub const REMINDERS_FILE: &str = "reminders.json";
@@ -20,6 +22,8 @@ pub const HISTORY_FILE: &str = "history.jsonl";
 pub const SNOOZES_FILE: &str = "snoozes.json";
 /// 调度心跳状态文件名（`{ last_tick }`）。
 pub const STATE_FILE: &str = "state.json";
+/// 应用设置文件名（`{ version, settings }`）。
+pub const SETTINGS_FILE: &str = "settings.json";
 
 /// 存储文件格式版本。
 const FORMAT_VERSION: u32 = 1;
@@ -102,6 +106,15 @@ struct SnoozesFile {
 struct StateFile {
     /// 调度心跳时间（错过检测基准）。
     last_tick: chrono::DateTime<chrono::Local>,
+}
+
+/// `settings.json` 的磁盘形态。
+#[derive(Serialize, Deserialize)]
+struct SettingsFile {
+    /// 文件格式版本。
+    version: u32,
+    /// 应用设置。
+    settings: AppSettings,
 }
 
 /// 数据目录上的存储句柄。
@@ -331,6 +344,42 @@ impl Store {
     pub fn save_state(&self, tick: chrono::DateTime<chrono::Local>) -> Result<(), StoreError> {
         let file = StateFile { last_tick: tick };
         let path = self.path(STATE_FILE);
+        let bytes = serde_json::to_vec_pretty(&file).map_err(|source| StoreError::Json {
+            path: path.clone(),
+            source,
+        })?;
+        self.atomic_write(&path, &bytes)
+    }
+
+    /// 读取应用设置（`settings.json`）。
+    ///
+    /// 文件缺失或损坏时返回 [`AppSettings::default`]（损坏文件备份为 `*.corrupt-<ts>`，
+    /// 与提醒数据的宽容读取对称，绝不 panic）。
+    pub fn load_settings(&self) -> Result<AppSettings, StoreError> {
+        let path = self.path(SETTINGS_FILE);
+        let text = match fs::read_to_string(&path) {
+            Ok(text) => text,
+            Err(source) if source.kind() == std::io::ErrorKind::NotFound => {
+                return Ok(AppSettings::default())
+            }
+            Err(source) => return Err(StoreError::Io { path, source }),
+        };
+        match serde_json::from_str::<SettingsFile>(&text) {
+            Ok(file) => Ok(file.settings),
+            Err(_) => {
+                self.backup_corrupt(&path)?;
+                Ok(AppSettings::default())
+            }
+        }
+    }
+
+    /// 原子写入应用设置（`settings.json`，唯一 tmp + fsync + rename，与其余数据文件同规则）。
+    pub fn save_settings(&self, settings: &AppSettings) -> Result<(), StoreError> {
+        let file = SettingsFile {
+            version: FORMAT_VERSION,
+            settings: *settings,
+        };
+        let path = self.path(SETTINGS_FILE);
         let bytes = serde_json::to_vec_pretty(&file).map_err(|source| StoreError::Json {
             path: path.clone(),
             source,

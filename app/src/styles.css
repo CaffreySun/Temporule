@@ -1,4 +1,4 @@
-/** 极简深色友好样式（占位阶段，切片 4 扩展）。 */
+/** 拾律深色主题（唯一 CSS 文件；UI 文案中文，样式名 kebab-case）。 */
 
 :root {
   color-scheme: dark;
@@ -7,6 +7,10 @@
   --muted: #8e8e93;
   --accent: #4f9cf9;
   --panel: #2c2c2e;
+  --panel-2: #3a3a3c;
+  --danger: #ff453a;
+  --ok: #30d158;
+  --radius: 8px;
 }
 
 * {
@@ -45,6 +49,10 @@ body {
   font-weight: 600;
 }
 
+.view-footer {
+  margin-top: auto;
+}
+
 .status-dot {
   width: 8px;
   height: 8px;
@@ -52,11 +60,72 @@ body {
   background: var(--muted);
 }
 
+.status-dot.running {
+  background: var(--ok);
+  box-shadow: 0 0 6px var(--ok);
+}
+
 .hint {
   margin: 0;
   color: var(--muted);
   line-height: 1.6;
 }
+
+.muted {
+  color: var(--muted);
+}
+
+/* —— 按钮 —— */
+
+.button {
+  padding: 6px 14px;
+  border: 1px solid var(--panel-2);
+  border-radius: var(--radius);
+  background: var(--panel);
+  color: var(--fg);
+  font: inherit;
+  cursor: pointer;
+}
+
+.button:hover {
+  background: var(--panel-2);
+}
+
+.button.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.button.primary:hover {
+  filter: brightness(1.1);
+}
+
+.button.danger {
+  color: var(--danger);
+  border-color: var(--danger);
+  background: transparent;
+}
+
+.button.danger:hover {
+  background: rgba(255, 69, 58, 0.12);
+}
+
+.button.small {
+  padding: 3px 10px;
+  font-size: 12px;
+}
+
+.button.wide {
+  width: 100%;
+}
+
+.toolbar {
+  display: flex;
+  gap: 8px;
+}
+
+/* —— Tabs —— */
 
 .tab-bar {
   display: flex;
@@ -81,8 +150,290 @@ body {
 
 .tab-content {
   flex: 1;
+  overflow: auto;
 }
 
 .tab-pane {
   padding: 12px 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* —— 仪表盘卡片 —— */
+
+.dashboard-content {
+  flex: 1;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.card-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.card {
+  background: var(--panel);
+  border-radius: var(--radius);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.card-head h3 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.card p {
+  margin: 0;
+}
+
+.card-next {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.card-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+/* —— 开关（checkbox 伪装） —— */
+
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 36px;
+  height: 20px;
+  flex: none;
+}
+
+.switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.switch span {
+  position: absolute;
+  inset: 0;
+  border-radius: 10px;
+  background: var(--panel-2);
+  transition: background 0.15s;
+  cursor: pointer;
+}
+
+.switch span::before {
+  content: "";
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  left: 2px;
+  top: 2px;
+  border-radius: 50%;
+  background: var(--fg);
+  transition: transform 0.15s;
+}
+
+.switch input:checked + span {
+  background: var(--accent);
+}
+
+.switch input:checked + span::before {
+  transform: translateX(16px);
+}
+
+/* —— 表单 —— */
+
+.reminder-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow: auto;
+}
+
+.form-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.form-label {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.inline-group {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.sub-box {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding: 8px;
+  background: var(--panel);
+  border-radius: var(--radius);
+}
+
+.input {
+  padding: 6px 10px;
+  border: 1px solid var(--panel-2);
+  border-radius: var(--radius);
+  background: var(--panel);
+  color: var(--fg);
+  font: inherit;
+  width: 100%;
+}
+
+.input.narrow {
+  width: auto;
+}
+
+.input:focus {
+  outline: 1px solid var(--accent);
+}
+
+.radio,
+.checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.radio input,
+.checkbox input {
+  accent-color: var(--accent);
+}
+
+.chip-row {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.chip {
+  padding: 4px 10px;
+  border: 1px solid var(--panel-2);
+  border-radius: 999px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.chip input {
+  display: none;
+}
+
+.chip:has(input:checked) {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.field-error {
+  margin: 0;
+  color: var(--danger);
+  font-size: 12px;
+  min-height: 1em;
+}
+
+.field-error:empty {
+  display: none;
+}
+
+.form-actions {
+  display: flex;
+  gap: 8px;
+}
+
+/* —— 数据表格 —— */
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.data-table th,
+.data-table td {
+  padding: 8px 10px;
+  text-align: left;
+  border-bottom: 1px solid var(--panel);
+  vertical-align: middle;
+}
+
+.data-table th {
+  color: var(--muted);
+  font-weight: 500;
+  font-size: 12px;
+}
+
+/* —— 设置 —— */
+
+.setting-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 4px;
+  border-bottom: 1px solid var(--panel);
+}
+
+.setting-label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* —— 模态对话框 —— */
+
+.dialog-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.dialog {
+  background: var(--panel);
+  border-radius: var(--radius);
+  padding: 18px;
+  min-width: 260px;
+  max-width: 360px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.dialog-message {
+  margin: 0;
+  line-height: 1.6;
+}
+
+.dialog-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
 }

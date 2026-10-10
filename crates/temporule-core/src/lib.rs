@@ -5,4 +5,5 @@
 
 pub mod engine;
 pub mod model;
+pub mod settings;
 pub mod store;

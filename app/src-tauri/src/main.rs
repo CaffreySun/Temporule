@@ -1,10 +1,14 @@
 //! Temporule（拾律）Tauri 2 GUI 入口。
 //!
-//! 本切片（切片 3）只搭建骨架：托盘图标、无 Dock 图标（activation policy Accessory）、
+//! 切片 3 骨架：托盘图标、无 Dock 图标（activation policy Accessory）、
 //! 惰性窗口（仪表盘 / 主窗口）、deep link（`temporule://dashboard`）、单实例；
-//! 调度循环与数据命令在切片 5 接入 temporule-core。
+//! 切片 4 接入 temporule-core 数据命令（`commands`）与 Store 单例/目录监听（`store_state`）；
+//! 调度循环与弹窗窗口在切片 5 接入。
 
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+
+mod commands;
+mod store_state;
 
 use tauri::{
     menu::{Menu, MenuItem},
@@ -73,28 +77,36 @@ fn show_dashboard(app: &AppHandle) -> tauri::Result<WebviewWindow> {
         window.set_focus()?;
         return Ok(window);
     }
-    let mut builder = WebviewWindowBuilder::new(
-        app,
-        DASHBOARD_LABEL,
-        WebviewUrl::App("index.html".into()),
-    )
-    .title("拾律")
-    .inner_size(DASHBOARD_SIZE.0, DASHBOARD_SIZE.1)
-    .always_on_top(true)
-    .skip_taskbar(true)
-    .closable(true)
-    .minimizable(false);
+    let mut builder =
+        WebviewWindowBuilder::new(app, DASHBOARD_LABEL, WebviewUrl::App("index.html".into()))
+            .title("拾律")
+            .inner_size(DASHBOARD_SIZE.0, DASHBOARD_SIZE.1)
+            .always_on_top(true)
+            .skip_taskbar(true)
+            .closable(true)
+            .minimizable(false);
     if let Some((x, y)) = dashboard_position(app) {
         builder = builder.position(x, y);
     }
     let window = builder.build()?;
+    // 失焦自动隐藏（设置页「仪表盘失焦隐藏」开关控制，默认开）
+    let handle = app.clone();
+    window.on_window_event(move |event| {
+        if let tauri::WindowEvent::Focused(false) = event {
+            if store_state::dashboard_hide_on_blur() {
+                if let Some(window) = handle.get_webview_window(DASHBOARD_LABEL) {
+                    let _ = window.hide();
+                }
+            }
+        }
+    });
     window.show()?;
     window.set_focus()?;
     Ok(window)
 }
 
 /// 显示并聚焦主窗口；不存在时惰性创建（启动默认隐藏，仅经托盘 / deep link 唤起）。
-fn show_main_window(app: &AppHandle) -> tauri::Result<WebviewWindow> {
+pub(crate) fn show_main_window(app: &AppHandle) -> tauri::Result<WebviewWindow> {
     if let Some(window) = app.get_webview_window(MAIN_LABEL) {
         window.show()?;
         window.set_focus()?;
@@ -180,9 +192,24 @@ fn main() {
         .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_autostart::init(
-            tauri_plugin_autostart::MacosLauncher::LaunchAgent,
+            tauri_plugin_autostart::MacosLauncher::AppleScript,
             None,
         ))
+        .invoke_handler(tauri::generate_handler![
+            commands::list,
+            commands::get,
+            commands::add,
+            commands::update,
+            commands::remove,
+            commands::toggle,
+            commands::history,
+            commands::settings,
+            commands::save_settings,
+            commands::popup_action,
+            commands::show_main_window,
+            commands::data_dir,
+            commands::open_data_dir
+        ])
         .setup(|app| {
             // 菜单栏常驻：无 Dock / Cmd-Tab 图标（macOS 专有 API，见 CONVENTIONS §1 跨平台就绪规范）
             #[cfg(target_os = "macos")]
@@ -190,6 +217,10 @@ fn main() {
                 .set_activation_policy(tauri::ActivationPolicy::Accessory)?;
 
             setup_tray(app)?;
+
+            // Store 单例 + 设置缓存 + 数据目录监听（外部修改 → store-changed 事件）
+            store_state::init_settings_cache()?;
+            store_state::setup_watcher(app.handle())?;
 
             // deep link：macOS 方案注册在构建期写入 Info.plist，运行期只订阅打开事件
             {

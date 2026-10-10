@@ -16,6 +16,7 @@ import {
   onStoreChanged,
   openDataDir,
   removeReminder,
+  requestNotificationPermission,
   saveAppSettings,
   toggleReminder,
   type AppSettingsView,
@@ -117,6 +118,10 @@ function reminderRow(
 
 /** 提醒 Tab：表格 ↔ 表单 双态。 */
 function renderRemindersTab(pane: HTMLElement): void {
+  // 表单挂载期间不重建（store-changed / 切 Tab 均不吞未保存输入；保存/取消收尾时重建列表）
+  if (pane.querySelector("form.reminder-form") !== null) {
+    return;
+  }
   const showTable = (): void => {
     pane.replaceChildren();
     const toolbar = document.createElement("div");
@@ -323,6 +328,40 @@ function renderSettingsTab(pane: HTMLElement): void {
         ),
       );
 
+      // —— 通知权限：被拒后可在设置页重试请求，恢复调度器的系统通知分发
+      const permRow = document.createElement("div");
+      permRow.className = "setting-row";
+      const permCaption = document.createElement("div");
+      permCaption.className = "setting-label";
+      const permName = document.createElement("div");
+      permName.textContent = "通知权限";
+      const permHint = document.createElement("div");
+      permHint.className = "hint";
+      permHint.textContent = "被拒后可在此重新请求";
+      permCaption.append(permName, permHint);
+      const permButton = document.createElement("button");
+      permButton.type = "button";
+      permButton.className = "button";
+      permButton.textContent = "请求通知权限";
+      permButton.addEventListener("click", () => {
+        permButton.disabled = true;
+        permHint.textContent = "请求中…";
+        requestNotificationPermission()
+          .then((state) => {
+            permHint.textContent =
+              state === "granted"
+                ? "已获得通知权限"
+                : "仍被拒绝，请在「系统设置 → 通知」中允许拾律后重试";
+          })
+          .catch((err: unknown) => {
+            permHint.textContent = `请求失败：${formatError(err)}`;
+          })
+          .finally(() => {
+            permButton.disabled = false;
+          });
+      });
+      permRow.append(permCaption, permButton);
+
       const dirRow = document.createElement("div");
       dirRow.className = "setting-row";
       const dirCaption = document.createElement("div");
@@ -343,7 +382,7 @@ function renderSettingsTab(pane: HTMLElement): void {
         });
       });
       dirRow.append(dirCaption, openButton);
-      pane.append(dirRow);
+      pane.append(permRow, dirRow);
     })
     .catch((err: unknown) => {
       pane.replaceChildren();

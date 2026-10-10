@@ -497,6 +497,10 @@ fn build_delivery(common: &CommonArgs) -> Result<Delivery> {
 /// 应用触达变更（`edit` 部分更新），返回是否发生变更。
 fn apply_delivery(common: &CommonArgs, reminder: &mut Reminder) -> Result<bool> {
     if common.notification {
+        // 与 `build_delivery` 对称：弹窗专属 flag 不得随 --notification 静默丢弃
+        if common.force || common.auto_dismiss.is_some() {
+            return Err(usage("--force / --auto-dismiss 仅适用于弹窗（--popup）"));
+        }
         reminder.delivery = Delivery::Notification {
             sound: common.sound,
         };

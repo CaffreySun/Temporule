@@ -43,7 +43,7 @@ pub fn next_fire(reminder: &Reminder, after: DateTime<Local>) -> Option<DateTime
     None
 }
 
-/// 某一天内的候选触发时刻（升序），已按 [`Repeat`] 过滤星期。
+/// 某一天内的候选触发时刻（升序且去重），已按 [`Repeat`] 过滤星期。
 fn day_candidates(reminder: &Reminder, date: NaiveDate) -> Vec<NaiveTime> {
     let matched = match &reminder.repeat {
         Repeat::Daily => true,
@@ -56,6 +56,8 @@ fn day_candidates(reminder: &Reminder, date: NaiveDate) -> Vec<NaiveTime> {
         Schedule::At { times } => {
             let mut sorted = times.clone();
             sorted.sort();
+            // 重复时刻去重：同一时刻只触发一次（--at 9:00,9:00 不双发）
+            sorted.dedup();
             sorted
         }
         Schedule::Every {

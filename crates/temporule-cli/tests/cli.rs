@@ -318,6 +318,40 @@ fn force_and_auto_dismiss_are_mutually_exclusive() {
     );
 }
 
+/// `edit --notification` 拒绝 `--force` / `--auto-dismiss`（弹窗专属 flag）：退出码 2，不落任何变更。
+#[test]
+fn edit_notification_rejects_popup_only_flags() {
+    let data = TempDir::new().unwrap();
+    temporule(&data)
+        .args([
+            "add", "--title", "喝水", "--daily", "--at", "9:00", "--popup", "--force",
+        ])
+        .assert()
+        .success();
+    let id = first_id(&data);
+
+    for extra in [vec!["--force"], vec!["--auto-dismiss", "10"]] {
+        let assert = temporule(&data)
+            .args(["edit", &id, "--notification"])
+            .args(&extra)
+            .assert()
+            .failure()
+            .code(2);
+        let err = String::from_utf8(assert.get_output().stderr.clone()).unwrap();
+        assert!(
+            err.contains("仅适用于弹窗"),
+            "报错应指明弹窗专属 flag，实际 stderr：{err}"
+        );
+    }
+
+    // 拒绝后提醒未被改动（仍是强制处理弹窗，未静默切成通知）
+    let items = list_json(&data);
+    assert_eq!(
+        items[0]["delivery"]["popup"]["alert"],
+        serde_json::json!("require_action")
+    );
+}
+
 /// 裸 `add`（无任何 flags）：clap 报缺必填项，退出码 2，不写任何数据。
 #[test]
 fn bare_add_fails_with_usage_error() {

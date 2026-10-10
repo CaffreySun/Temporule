@@ -6,12 +6,7 @@
  * history(dismissed) 由 Rust 计时统一裁决，前端倒计时只做展示；提醒已删（popup_detail
  * 返回空）时视图自行关窗。
  */
-import {
-  fetchPopupDetail,
-  formatError,
-  popupAction,
-  type PopupDetailView,
-} from "../api";
+import { fetchPopupDetail, formatError, popupAction, type PopupDetailView } from "../api";
 
 /** 弹窗替换事件名（与 Rust 的 popup::POPUP_REPLACE_EVENT 对齐）。 */
 const POPUP_REPLACE_EVENT = "popup-replace";

@@ -14,7 +14,7 @@
 //! 锁序纪律：Store 锁绝不跨分发（窗口创建会同步等主线程，跨锁等待会与 Destroyed 回调死锁）；
 //! history 写入逐条短持锁。
 
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicU8, Ordering};
 
 use chrono::{DateTime, Duration, Local, TimeZone, Timelike};
 use tauri::AppHandle;
@@ -332,27 +332,48 @@ fn finish_pass(now: DateTime<Local>) -> Result<(), String> {
     store.save_state(now).map_err(|err| err.to_string())
 }
 
-/// 首次触发前请求一次通知权限；被拒仅记 log 并跳过通知（history 已在分发前写入）。
-fn notify_permitted(app: &AppHandle) -> bool {
+/// 通知权限状态：尚未请求过。
+const NOTIFY_UNREQUESTED: u8 = 0;
+/// 通知权限状态：已授权，正常分发系统通知。
+const NOTIFY_GRANTED: u8 = 1;
+/// 通知权限状态：被拒或请求失败，跳过系统通知（设置页可重试请求）。
+const NOTIFY_BLOCKED: u8 = 2;
+
+/// 通知权限缓存（调度器分发与设置页重试共享）：[`NOTIFY_UNREQUESTED`] / [`NOTIFY_GRANTED`] / [`NOTIFY_BLOCKED`]。
+static NOTIFY_PERM: AtomicU8 = AtomicU8::new(NOTIFY_UNREQUESTED);
+
+/// 请求（或在设置页重试请求）系统通知权限，返回 `"granted"` / `"denied"`。
+///
+/// 授予即恢复调度器的通知分发（清零被拒状态）；被拒保持跳过通知、仅记 history；
+/// 请求本身失败上抛错误（状态同样置为被拒，设置页可再重试）。
+pub fn request_notification_permission(app: &AppHandle) -> Result<String, String> {
     use tauri_plugin_notification::{NotificationExt, PermissionState};
-    static REQUESTED: AtomicBool = AtomicBool::new(false);
-    static BLOCKED: AtomicBool = AtomicBool::new(false);
-    if !REQUESTED.swap(true, Ordering::Relaxed) {
-        match app.notification().request_permission() {
-            Ok(PermissionState::Granted) => {}
-            Ok(state) => {
-                BLOCKED.store(true, Ordering::Relaxed);
-                eprintln!(
-                    "[temporule-sched] 通知权限被拒（{state:?}），跳过系统通知，仅记录 history"
-                );
-            }
-            Err(err) => {
-                BLOCKED.store(true, Ordering::Relaxed);
-                eprintln!("[temporule-sched] 通知权限请求失败：{err}，跳过系统通知");
-            }
+    match app.notification().request_permission() {
+        Ok(PermissionState::Granted) => {
+            NOTIFY_PERM.store(NOTIFY_GRANTED, Ordering::Relaxed);
+            Ok("granted".to_string())
+        }
+        Ok(state) => {
+            NOTIFY_PERM.store(NOTIFY_BLOCKED, Ordering::Relaxed);
+            eprintln!("[temporule-sched] 通知权限被拒（{state:?}），跳过系统通知，仅记录 history");
+            Ok("denied".to_string())
+        }
+        Err(err) => {
+            NOTIFY_PERM.store(NOTIFY_BLOCKED, Ordering::Relaxed);
+            Err(format!("通知权限请求失败：{err}"))
         }
     }
-    !BLOCKED.load(Ordering::Relaxed)
+}
+
+/// 首次触发前请求一次通知权限；被拒仅记 log 并跳过通知（history 已在分发前写入）。
+fn notify_permitted(app: &AppHandle) -> bool {
+    if NOTIFY_PERM.load(Ordering::Relaxed) == NOTIFY_UNREQUESTED {
+        // 只在首次触发时请求一次；结果被拒不打断调度，恢复走设置页的重试入口
+        if let Err(err) = request_notification_permission(app) {
+            eprintln!("[temporule-sched] {err}，跳过系统通知");
+        }
+    }
+    NOTIFY_PERM.load(Ordering::Relaxed) == NOTIFY_GRANTED
 }
 
 /// 系统通知分发（准点 / 补发同路径）；`sound = true` 时带提示音。

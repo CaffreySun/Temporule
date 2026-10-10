@@ -63,6 +63,8 @@ export interface ReminderDetail extends ReminderPayload {
   id: string;
   /** 是否启用。 */
   enabled: boolean;
+  /** 表单打开时的 store rev 快照（保存时作 rev 守卫基线）。 */
+  rev: number;
 }
 
 /** 历史条目（core::model::HistoryEntry）。 */
@@ -92,9 +94,7 @@ export interface AppSettingsView {
 }
 
 /** 弹窗行为（commands::PopupAlertView）：auto（自动消失）| force（强制处理）。 */
-export type PopupAlertView =
-  | { kind: "auto"; seconds: number }
-  | { kind: "force" };
+export type PopupAlertView = { kind: "auto"; seconds: number } | { kind: "force" };
 
 /** 弹窗内容（commands::PopupDetailView）。 */
 export interface PopupDetailView {
@@ -156,14 +156,28 @@ export function getReminder(id: string): Promise<ReminderDetail> {
   return invoke<ReminderDetail>("get", { id });
 }
 
-/** 新增提醒。 */
-export function addReminder(payload: ReminderPayload): Promise<void> {
-  return invoke<void>("add", { payload });
+/** 新增提醒；`baseRev` 为表单打开时的 rev 快照（会话期间外部写入 → SaveConflict）。 */
+export function addReminder(payload: ReminderPayload, baseRev?: number): Promise<void> {
+  return invoke<void>("add", { payload, base_rev: baseRev ?? null });
 }
 
-/** 编辑提醒。 */
-export function updateReminder(id: string, payload: ReminderPayload): Promise<void> {
-  return invoke<void>("update", { id, payload });
+/** 编辑提醒；`baseRev` 必须携带表单打开（get）时的 rev 快照，过期保存返回 SaveConflict。 */
+export function updateReminder(
+  id: string,
+  payload: ReminderPayload,
+  baseRev: number,
+): Promise<void> {
+  return invoke<void>("update", { id, payload, base_rev: baseRev });
+}
+
+/** 当前 store rev（新增表单打开时取快照）。 */
+export function fetchStoreRev(): Promise<number> {
+  return invoke<number>("store_rev");
+}
+
+/** 请求（或重试请求）系统通知权限，返回 granted | denied。 */
+export function requestNotificationPermission(): Promise<string> {
+  return invoke<string>("request_notification_permission");
 }
 
 /** 删除提醒。 */
@@ -212,10 +226,7 @@ export function fetchPopupDetail(popupId: string): Promise<PopupDetailView | nul
 }
 
 /** 弹窗按钮动作：done 记完成并关窗；snooze 按提醒的稍后分钟数挂起并关窗。 */
-export function popupAction(
-  popupId: string,
-  action: "done" | "snooze",
-): Promise<void> {
+export function popupAction(popupId: string, action: "done" | "snooze"): Promise<void> {
   return invoke<void>("popup_action", { popup_id: popupId, action });
 }
 

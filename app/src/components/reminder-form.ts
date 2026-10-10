@@ -1,10 +1,12 @@
 /**
  * 新增/编辑提醒表单（仪表盘与主窗口共用组件函数）。
- * 保存前本地校验模型不变量（错误红字内联）；SaveConflict 弹「数据已被外部修改，请重试」并重载。
+ * 保存前本地校验模型不变量（错误红字内联）；保存携带表单打开时的 rev 快照，
+ * 过期保存（SaveConflict）弹「数据已被外部修改，请重试」并重载；提交期间禁用保存按钮防重入。
  */
 import {
   addReminder,
   fetchSettings,
+  fetchStoreRev,
   formatError,
   isSaveConflictError,
   updateReminder,
@@ -112,6 +114,19 @@ export function reminderForm(options: ReminderFormOptions): HTMLElement {
   const initial = options.initial;
   const root = document.createElement("form");
   root.className = "reminder-form";
+
+  // —— 表单会话持有的 store rev 快照（保存基线，防过期快照覆盖）：
+  // 编辑取 get 时的 rev；新增挂载时取一次当前 rev
+  let baseRev: number | undefined = initial?.rev;
+  if (baseRev === undefined) {
+    void fetchStoreRev()
+      .then((rev) => {
+        baseRev = rev;
+      })
+      .catch(() => {
+        // 取不到快照就退回按当前 rev 保存，不阻塞表单
+      });
+  }
 
   // —— 标题 / 备注
   const titleInput = document.createElement("input");
@@ -407,15 +422,24 @@ export function reminderForm(options: ReminderFormOptions): HTMLElement {
     };
   };
 
+  // —— 提交：防重入（提交期间禁用按钮，完成或失败后恢复）
+  let submitting = false;
   root.addEventListener("submit", (event) => {
     event.preventDefault();
+    if (submitting) {
+      return;
+    }
     submitError.textContent = "";
     const payload = collectPayload();
     if (payload === null) {
       return;
     }
+    submitting = true;
+    saveButton.disabled = true;
     const saving =
-      initial === undefined ? addReminder(payload) : updateReminder(initial.id, payload);
+      initial === undefined
+        ? addReminder(payload, baseRev)
+        : updateReminder(initial.id, payload, initial.rev);
     void saving
       .then(() => {
         options.onFinished();
@@ -426,6 +450,10 @@ export function reminderForm(options: ReminderFormOptions): HTMLElement {
         } else {
           submitError.textContent = formatError(err);
         }
+      })
+      .finally(() => {
+        submitting = false;
+        saveButton.disabled = false;
       });
   });
   cancelButton.addEventListener("click", () => options.onCancel());

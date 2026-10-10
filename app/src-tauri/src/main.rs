@@ -86,14 +86,17 @@ fn show_dashboard(app: &AppHandle) -> tauri::Result<WebviewWindow> {
         window.set_focus()?;
         return Ok(window);
     }
-    let mut builder =
-        WebviewWindowBuilder::new(app, DASHBOARD_LABEL, WebviewUrl::App("index.html".into()))
-            .title("拾律")
-            .inner_size(DASHBOARD_SIZE.0, DASHBOARD_SIZE.1)
-            .always_on_top(true)
-            .skip_taskbar(true)
-            .closable(true)
-            .minimizable(false);
+    let mut builder = WebviewWindowBuilder::new(
+        app,
+        DASHBOARD_LABEL,
+        WebviewUrl::App("index.html?view=dashboard".into()),
+    )
+    .title("拾律")
+    .inner_size(DASHBOARD_SIZE.0, DASHBOARD_SIZE.1)
+    .always_on_top(true)
+    .skip_taskbar(true)
+    .closable(true)
+    .minimizable(false);
     if let Some((x, y)) = dashboard_position(app) {
         builder = builder.position(x, y);
     }
@@ -121,26 +124,36 @@ pub(crate) fn show_main_window(app: &AppHandle) -> tauri::Result<WebviewWindow> 
         window.set_focus()?;
         return Ok(window);
     }
-    let window = WebviewWindowBuilder::new(app, MAIN_LABEL, WebviewUrl::App("index.html".into()))
-        .title("拾律")
-        .inner_size(MAIN_SIZE.0, MAIN_SIZE.1)
-        .build()?;
+    let window = WebviewWindowBuilder::new(
+        app,
+        MAIN_LABEL,
+        WebviewUrl::App("index.html?view=main".into()),
+    )
+    .title("拾律")
+    .inner_size(MAIN_SIZE.0, MAIN_SIZE.1)
+    .build()?;
     window.show()?;
     window.set_focus()?;
     Ok(window)
 }
 
-/// 处理 deep link URL：`temporule://dashboard` → 显示仪表盘窗口。
+/// 处理 deep link URL：`temporule://dashboard` → 仪表盘；`temporule://main` → 主窗口。
 ///
-/// 其余 URL 静默忽略（后续切片扩展路由）。
+/// 其余 URL 静默忽略。
 fn handle_deep_link(app: &AppHandle, raw: &str) {
     let Ok(url) = Url::parse(raw) else {
         return;
     };
-    if url.scheme() == DEEP_LINK_SCHEME && url.host_str() == Some(DEEP_LINK_DASHBOARD_HOST) {
-        if let Err(err) = show_dashboard(app) {
-            eprintln!("[temporule] 显示仪表盘失败: {err}");
-        }
+    if url.scheme() != DEEP_LINK_SCHEME {
+        return;
+    }
+    let result = match url.host_str() {
+        Some(DEEP_LINK_DASHBOARD_HOST) => show_dashboard(app),
+        Some("main") => show_main_window(app),
+        _ => return,
+    };
+    if let Err(err) = result {
+        eprintln!("[temporule] deep link 窗口显示失败: {err}");
     }
 }
 
@@ -222,7 +235,9 @@ fn main() {
             commands::popup_detail,
             commands::show_main_window,
             commands::data_dir,
-            commands::open_data_dir
+            commands::open_data_dir,
+            commands::store_rev,
+            commands::request_notification_permission
         ])
         .setup(|app| {
             // 菜单栏常驻：无 Dock / Cmd-Tab 图标（macOS 专有 API，见 CONVENTIONS §1 跨平台就绪规范）

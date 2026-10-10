@@ -227,6 +227,9 @@ impl Store {
     }
 
     /// 读取最近 `limit` 条历史记录（按时间序，文件缺失返回空）。
+    ///
+    /// 无法解析的行跳过并记 log（对齐 `reminders.json` 的损坏容错：单行坏数据
+    /// 不得瘫痪历史读取与依赖它的 [`Store::truncate_history`]）。
     pub fn read_history(&self, limit: usize) -> Result<Vec<HistoryEntry>, StoreError> {
         let path = self.path(HISTORY_FILE);
         let text = match fs::read_to_string(&path) {
@@ -239,12 +242,10 @@ impl Store {
             if line.trim().is_empty() {
                 continue;
             }
-            let entry: HistoryEntry =
-                serde_json::from_str(line).map_err(|source| StoreError::Json {
-                    path: path.clone(),
-                    source,
-                })?;
-            entries.push(entry);
+            match serde_json::from_str(line) {
+                Ok(entry) => entries.push(entry),
+                Err(err) => eprintln!("[temporule-core] 跳过无法解析的历史行：{err}"),
+            }
         }
         let start = entries.len().saturating_sub(limit);
         Ok(entries.split_off(start))

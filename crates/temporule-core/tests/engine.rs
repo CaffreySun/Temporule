@@ -144,6 +144,30 @@ fn fires_at_each_configured_time_of_day() {
 }
 
 #[test]
+fn duplicate_at_times_fire_only_once() {
+    // --at 9:00,9:00：同一时刻只触发一次，不双发
+    let r = reminder(
+        Repeat::Daily,
+        Schedule::At {
+            times: vec![hms(9, 0), hms(9, 0)],
+        },
+    );
+    assert_eq!(
+        occurrences(&r, dt(2026, 6, 1, 0, 0), dt(2026, 6, 1, 23, 59)),
+        vec![dt(2026, 6, 1, 9, 0)]
+    );
+    // next_fire 链同样不重复返回同一时刻
+    assert_eq!(
+        next_fire(&r, dt(2026, 6, 1, 8, 0)),
+        Some(dt(2026, 6, 1, 9, 0))
+    );
+    assert_eq!(
+        next_fire(&r, dt(2026, 6, 1, 9, 0)),
+        Some(dt(2026, 6, 2, 9, 0))
+    );
+}
+
+#[test]
 fn returns_next_occurrence_when_after_equals_an_occurrence() {
     // 严格后驱：after 恰等于触发时刻时必须返回下一个，而不是它自己
     let r = reminder(

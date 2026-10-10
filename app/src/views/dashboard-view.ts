@@ -177,8 +177,13 @@ export function dashboardView(): HTMLElement {
       });
   };
 
-  // 外部修改提醒数据（CLI 等）→ 自动重载列表
-  onStoreChanged(showList);
+  // 外部修改提醒数据（CLI 等）→ 自动重载列表；表单挂载期间挂起重载，
+  // 保存/取消收尾时本就重载一次，不吞未保存输入
+  onStoreChanged(() => {
+    if (content.querySelector("form.reminder-form") === null) {
+      showList();
+    }
+  });
 
   root.append(header, content, footer);
   showList();

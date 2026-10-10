@@ -85,6 +85,8 @@ pub struct ReminderDetail {
     pub id: String,
     /// 是否启用。
     pub enabled: bool,
+    /// 表单打开时的 store rev 快照（保存时作为 rev 守卫基线，防过期快照覆盖）。
+    pub rev: u64,
     /// 表单字段。
     #[serde(flatten)]
     pub payload: ReminderPayload,
@@ -182,7 +184,7 @@ pub fn list() -> Result<Vec<ReminderView>, String> {
         .collect())
 }
 
-/// 提醒完整字段（编辑表单预填）。
+/// 提醒完整字段（编辑表单预填，含表单会话的 rev 快照）。
 #[tauri::command(rename_all = "snake_case")]
 pub fn get(id: String) -> Result<ReminderDetail, String> {
     let id = parse_uuid(&id)?;
@@ -193,24 +195,32 @@ pub fn get(id: String) -> Result<ReminderDetail, String> {
         .iter()
         .find(|reminder| reminder.id == id)
         .ok_or_else(|| format!("提醒不存在：{id}"))?;
-    Ok(detail_of(reminder))
+    Ok(detail_of(reminder, data.rev))
 }
 
 /// 新增提醒（校验失败/存储冲突返回中文错误）。
+///
+/// `base_rev` 为表单打开时的 rev 快照：给出时用作保存基线（会话期间外部已写入 →
+/// [`StoreError::SaveConflict`]），缺省按当前 rev 保存（无快照保护）。
 #[tauri::command(rename_all = "snake_case")]
-pub fn add(payload: ReminderPayload) -> Result<(), String> {
+pub fn add(payload: ReminderPayload, base_rev: Option<u64>) -> Result<(), String> {
     let reminder = payload.into_reminder(None)?;
     let store = store_state::store()?;
     let mut data = store.load().map_err(err_string)?;
     data.reminders.push(reminder);
-    store.save(data.rev, &data.reminders).map_err(err_string)?;
+    store
+        .save(base_rev.unwrap_or(data.rev), &data.reminders)
+        .map_err(err_string)?;
     store_state::note_reminders_written();
     Ok(())
 }
 
 /// 编辑提醒（表单全量替换，rev 守卫冲突映射为固定文案）。
+///
+/// `base_rev` 必须携带表单打开（`get`）时的 rev 快照：外部写入后保存即冲突，
+/// 防止过期快照覆盖（规格 Major#5），前端按 [`SAVE_CONFLICT_MSG`] 提示并强制重载。
 #[tauri::command(rename_all = "snake_case")]
-pub fn update(id: String, payload: ReminderPayload) -> Result<(), String> {
+pub fn update(id: String, payload: ReminderPayload, base_rev: u64) -> Result<(), String> {
     let id = parse_uuid(&id)?;
     let store = store_state::store()?;
     let mut data = store.load().map_err(err_string)?;
@@ -221,7 +231,7 @@ pub fn update(id: String, payload: ReminderPayload) -> Result<(), String> {
         .ok_or_else(|| format!("提醒不存在：{id}"))?;
     let reminder = payload.into_reminder(Some(&data.reminders[pos]))?;
     data.reminders[pos] = reminder;
-    store.save(data.rev, &data.reminders).map_err(err_string)?;
+    store.save(base_rev, &data.reminders).map_err(err_string)?;
     store_state::note_reminders_written();
     Ok(())
 }
@@ -416,6 +426,20 @@ pub fn data_dir() -> Result<String, String> {
     Ok(store_state::data_dir()?.to_string_lossy().into_owned())
 }
 
+/// 当前 store rev（新增表单打开时取一次快照，作保存的 rev 守卫基线）。
+#[tauri::command(rename_all = "snake_case")]
+pub fn store_rev() -> Result<u64, String> {
+    Ok(store_state::store()?.load().map_err(err_string)?.rev)
+}
+
+/// 请求（或在设置页重试请求）系统通知权限，返回 `"granted"` / `"denied"`。
+///
+/// 请求失败上抛错误；被拒不报错，由调度器继续只记 history（不发系统通知）。
+#[tauri::command(rename_all = "snake_case")]
+pub fn request_notification_permission(app: AppHandle) -> Result<String, String> {
+    crate::scheduler::request_notification_permission(&app)
+}
+
 /// 在访达中打开数据目录（与 CLI 的 `temporule open` 同为 `open` 命令调用）。
 #[tauri::command(rename_all = "snake_case")]
 pub fn open_data_dir() -> Result<(), String> {
@@ -482,8 +506,8 @@ fn weekday_short(day: chrono::Weekday) -> &'static str {
     }
 }
 
-/// core 模型 → 表单预填视图。
-fn detail_of(reminder: &Reminder) -> ReminderDetail {
+/// core 模型 → 表单预填视图（`rev` = 表单打开时的 store rev 快照）。
+fn detail_of(reminder: &Reminder, rev: u64) -> ReminderDetail {
     let (repeat, weekdays) = match &reminder.repeat {
         Repeat::Daily => ("daily".to_string(), Vec::new()),
         Repeat::Weekly(days) => (
@@ -530,6 +554,7 @@ fn detail_of(reminder: &Reminder) -> ReminderDetail {
     ReminderDetail {
         id: reminder.id.to_string(),
         enabled: reminder.enabled,
+        rev,
         payload: ReminderPayload {
             title: reminder.title.clone(),
             note: reminder.note.clone(),

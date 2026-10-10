@@ -228,6 +228,68 @@ fn truncate_history_keeps_last_800_when_over_1000() {
 }
 
 #[test]
+fn read_history_skips_unparseable_lines() {
+    use temporule_core::model::{HistoryEntry, HistoryStatus};
+    let dir = tempfile::tempdir().unwrap();
+    let store = Store::open(dir.path()).unwrap();
+    let reminder_id = uuid::Uuid::new_v4();
+
+    let entry = |at: DateTime<Local>| HistoryEntry {
+        id: uuid::Uuid::new_v4(),
+        reminder_id,
+        title: "提肛".to_string(),
+        scheduled_at: at,
+        status: HistoryStatus::Fired,
+        at,
+    };
+    let first = entry(dt(2026, 6, 1, 9, 0));
+    let second = entry(dt(2026, 6, 1, 10, 0));
+    store.append_history(&first).unwrap();
+    // 合法行之间夹一行损坏数据（半截 JSON）
+    {
+        use std::io::Write as _;
+        let mut file = std::fs::OpenOptions::new()
+            .append(true)
+            .open(dir.path().join("history.jsonl"))
+            .unwrap();
+        file.write_all("{ 这不是合法 JSON\n".as_bytes()).unwrap();
+    }
+    store.append_history(&second).unwrap();
+
+    // 坏行被跳过，合法行照常返回（不会整体报错）
+    assert_eq!(store.read_history(10).unwrap(), vec![first, second]);
+}
+
+#[test]
+fn truncate_history_tolerates_unparseable_lines() {
+    use temporule_core::model::{HistoryEntry, HistoryStatus};
+    let dir = tempfile::tempdir().unwrap();
+    let store = Store::open(dir.path()).unwrap();
+
+    let entry = HistoryEntry {
+        id: uuid::Uuid::new_v4(),
+        reminder_id: uuid::Uuid::new_v4(),
+        title: "提肛".to_string(),
+        scheduled_at: dt(2026, 6, 1, 9, 0),
+        status: HistoryStatus::Fired,
+        at: dt(2026, 6, 1, 9, 1),
+    };
+    store.append_history(&entry).unwrap();
+    {
+        use std::io::Write as _;
+        let mut file = std::fs::OpenOptions::new()
+            .append(true)
+            .open(dir.path().join("history.jsonl"))
+            .unwrap();
+        file.write_all("坏行\n".as_bytes()).unwrap();
+    }
+
+    // 截断检查不再因单行坏数据整体失败（否则调度心跳停更）
+    store.truncate_history().unwrap();
+    assert_eq!(store.read_history(10).unwrap(), vec![entry]);
+}
+
+#[test]
 fn snooze_add_due_remove_round_trip() {
     use temporule_core::model::SnoozeRecord;
     let dir = tempfile::tempdir().unwrap();

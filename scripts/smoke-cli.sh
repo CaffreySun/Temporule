@@ -46,10 +46,14 @@ step "remove（周会，-y）"
 "$BIN" remove "$ID3" -y
 
 step "remove 无 -y（应拒绝，退出 2）"
-if "$BIN" remove "$ID1" 2>/dev/null; then
-  echo "FAIL：remove 未要求确认" >&2; exit 1
+set +e
+"$BIN" remove "$ID1" </dev/null 2>/dev/null
+code=$?
+set -e
+if [ "$code" -eq 2 ]; then
+  echo "拒绝正确（退出码 2）"
 else
-  echo "拒绝正确"
+  echo "FAIL：remove 无 -y 应退出 2，实际退出 $code" >&2; exit 1
 fi
 
 step "互斥 flag（应退出 2）"

@@ -286,14 +286,17 @@ pub fn save_settings(app: AppHandle, settings: AppSettings) -> Result<(), String
     Ok(())
 }
 
-/// 弹窗按钮动作（切片 5 的真实弹窗沿用）：`done` 记已完成；`snooze` 按提醒的
-/// 「稍后」分钟数挂 SnoozeRecord 并记已稍后。
+/// 弹窗按钮动作：`done` 记已完成并关窗；`snooze` 按提醒的「稍后」分钟数挂 SnoozeRecord
+/// 记已稍后并关窗。两者都先经弹窗注册表标记消费（关窗不再记 dismissed）。
 ///
 /// `popup_id` 形如 `{reminder_id}:{seq}`，`seq` 为该次计划触发时刻的 Unix 毫秒
 /// （用于还原 `scheduled_at`，解析失败回退当前时刻）。
-/// `popup_id` 指向的提醒不存在（含格式非法/已删除）→ 静默成功。
+/// `popup_id` 指向的提醒不存在（含格式非法/已删除）→ 静默成功（仍消费并关窗）。
 #[tauri::command(rename_all = "snake_case")]
-pub fn popup_action(popup_id: String, action: String) -> Result<(), String> {
+pub fn popup_action(app: AppHandle, popup_id: String, action: String) -> Result<(), String> {
+    if action != "done" && action != "snooze" {
+        return Err(format!("未知弹窗操作：{action}"));
+    }
     let (reminder_id_raw, seq_raw) = popup_id.split_once(':').unwrap_or((popup_id.as_str(), ""));
     let Ok(reminder_id) = reminder_id_raw.parse::<uuid::Uuid>() else {
         return Ok(());
@@ -305,49 +308,99 @@ pub fn popup_action(popup_id: String, action: String) -> Result<(), String> {
         .map(|at| at.with_timezone(&Local))
         .unwrap_or_else(Local::now);
 
+    {
+        // Store 锁限定在本块内：注册表消费/关窗绝不持 Store 锁（与 Destroyed 回调保持锁序）
+        let store = store_state::store()?;
+        let data = store.load().map_err(err_string)?;
+        let now = Local::now();
+        // 契约：已删静默（下面统一消费并关窗）
+        if let Some(reminder) = data.reminders.iter().find(|r| r.id == reminder_id) {
+            if action == "done" {
+                store
+                    .append_history(&HistoryEntry {
+                        id: uuid::Uuid::new_v4(),
+                        reminder_id,
+                        title: reminder.title.clone(),
+                        scheduled_at,
+                        status: HistoryStatus::Done,
+                        at: now,
+                    })
+                    .map_err(err_string)?;
+            } else {
+                store
+                    .add_snooze(&SnoozeRecord {
+                        id: uuid::Uuid::new_v4(),
+                        reminder_id,
+                        due_at: now + chrono::Duration::minutes(i64::from(reminder.snooze_minutes)),
+                        created_at: now,
+                    })
+                    .map_err(err_string)?;
+                store
+                    .append_history(&HistoryEntry {
+                        id: uuid::Uuid::new_v4(),
+                        reminder_id,
+                        title: reminder.title.clone(),
+                        scheduled_at,
+                        status: HistoryStatus::Snoozed,
+                        at: now,
+                    })
+                    .map_err(err_string)?;
+            }
+        }
+    }
+    crate::popup::consume(&app, reminder_id);
+    Ok(())
+}
+
+/// 弹窗行为（弹窗视图用）：`{kind:"auto",seconds}` 或 `{kind:"force"}`。
+#[derive(Debug, Clone, Serialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum PopupAlertView {
+    /// 显示若干秒后自动消失。
+    Auto {
+        /// 自动消失秒数。
+        seconds: u32,
+    },
+    /// 必须手动处理。
+    Force,
+}
+
+/// 弹窗内容（`popup_detail` 返回）。
+#[derive(Debug, Clone, Serialize)]
+pub struct PopupDetailView {
+    /// 标题。
+    pub title: String,
+    /// 备注（可空）。
+    pub note: Option<String>,
+    /// 弹窗行为。
+    pub alert: PopupAlertView,
+}
+
+/// 弹窗内容（thin wrapper）：提醒不存在 / ID 非法返回空，由弹窗视图自行关窗。
+#[tauri::command(rename_all = "snake_case")]
+pub fn popup_detail(popup_id: String) -> Result<Option<PopupDetailView>, String> {
+    let (reminder_id_raw, _) = popup_id.split_once(':').unwrap_or((popup_id.as_str(), ""));
+    let Ok(reminder_id) = reminder_id_raw.parse::<uuid::Uuid>() else {
+        return Ok(None);
+    };
     let store = store_state::store()?;
     let data = store.load().map_err(err_string)?;
-    // 契约：已删静默
     let Some(reminder) = data.reminders.iter().find(|r| r.id == reminder_id) else {
-        return Ok(());
+        return Ok(None);
     };
-    let now = Local::now();
-    match action.as_str() {
-        "done" => {
-            store
-                .append_history(&HistoryEntry {
-                    id: uuid::Uuid::new_v4(),
-                    reminder_id,
-                    title: reminder.title.clone(),
-                    scheduled_at,
-                    status: HistoryStatus::Done,
-                    at: now,
-                })
-                .map_err(err_string)?;
-        }
-        "snooze" => {
-            store
-                .add_snooze(&SnoozeRecord {
-                    id: uuid::Uuid::new_v4(),
-                    reminder_id,
-                    due_at: now + chrono::Duration::minutes(i64::from(reminder.snooze_minutes)),
-                    created_at: now,
-                })
-                .map_err(err_string)?;
-            store
-                .append_history(&HistoryEntry {
-                    id: uuid::Uuid::new_v4(),
-                    reminder_id,
-                    title: reminder.title.clone(),
-                    scheduled_at,
-                    status: HistoryStatus::Snoozed,
-                    at: now,
-                })
-                .map_err(err_string)?;
-        }
-        other => return Err(format!("未知弹窗操作：{other}")),
-    }
-    Ok(())
+    let alert = match &reminder.delivery {
+        Delivery::Popup { alert } => match alert {
+            PopupAlert::AutoDismiss { seconds } => PopupAlertView::Auto { seconds: *seconds },
+            PopupAlert::RequireAction => PopupAlertView::Force,
+        },
+        // 弹窗在途时触达方式被改为通知：退化为强制处理，不自动关窗
+        Delivery::Notification { .. } => PopupAlertView::Force,
+    };
+    Ok(Some(PopupDetailView {
+        title: reminder.title.clone(),
+        note: reminder.note.clone(),
+        alert,
+    }))
 }
 
 /// 创建/聚焦主窗口（仪表盘「打开主窗口」按钮）。

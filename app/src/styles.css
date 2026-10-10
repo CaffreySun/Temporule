@@ -437,3 +437,40 @@ body {
   gap: 8px;
   justify-content: flex-end;
 }
+
+/* —— 弹窗（popup-* 窗口，~360×140） —— */
+
+.view.popup {
+  gap: 6px;
+  padding: 12px 14px;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.popup-title {
+  margin: 0;
+  font-size: 15px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.popup-note {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.4;
+  max-height: 34px;
+  overflow: hidden;
+}
+
+.popup-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.popup-countdown {
+  margin-left: auto;
+  font-size: 12px;
+  white-space: nowrap;
+}

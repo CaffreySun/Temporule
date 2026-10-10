@@ -8,6 +8,8 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod commands;
+mod popup;
+mod scheduler;
 mod store_state;
 
 use tauri::{
@@ -51,19 +53,26 @@ const DASHBOARD_SIZE: (f64, f64) = (440.0, 560.0);
 const MAIN_SIZE: (f64, f64) = (860.0, 620.0);
 
 /// 窗口与屏幕可见区域（右缘 / Dock 上缘）的间距（逻辑像素）。
-const EDGE_MARGIN: f64 = 16.0;
+pub(crate) const EDGE_MARGIN: f64 = 16.0;
+
+/// 主屏可见区域（逻辑像素）：x、y、宽、高；取不到主屏时返回 `None`（由系统默认定位兜底）。
+pub(crate) fn work_area_logical(app: &AppHandle) -> Option<(f64, f64, f64, f64)> {
+    let monitor = app.primary_monitor().ok().flatten()?;
+    let scale = monitor.scale_factor();
+    let work_area = monitor.work_area();
+    Some((
+        work_area.position.x as f64 / scale,
+        work_area.position.y as f64 / scale,
+        work_area.size.width as f64 / scale,
+        work_area.size.height as f64 / scale,
+    ))
+}
 
 /// 计算仪表盘窗口位置：主屏可见区域右下角，距 Dock 与右缘 16px。
 ///
 /// 返回逻辑像素坐标；取不到主屏时返回 `None`（由系统默认定位兜底）。
 fn dashboard_position(app: &AppHandle) -> Option<(f64, f64)> {
-    let monitor = app.primary_monitor().ok().flatten()?;
-    let scale = monitor.scale_factor();
-    let work_area = monitor.work_area();
-    let work_x = work_area.position.x as f64 / scale;
-    let work_y = work_area.position.y as f64 / scale;
-    let work_w = work_area.size.width as f64 / scale;
-    let work_h = work_area.size.height as f64 / scale;
+    let (work_x, work_y, work_w, work_h) = work_area_logical(app)?;
     Some((
         work_x + work_w - DASHBOARD_SIZE.0 - EDGE_MARGIN,
         work_y + work_h - DASHBOARD_SIZE.1 - EDGE_MARGIN,
@@ -162,7 +171,11 @@ fn setup_tray(app: &tauri::App) -> tauri::Result<()> {
                     eprintln!("[temporule] 显示主窗口失败: {err}");
                 }
             }
-            MENU_QUIT_ID => app.exit(0),
+            MENU_QUIT_ID => {
+                // 退出清理的弹窗窗口不产生 dismissed / 递补
+                popup::mark_shutting_down();
+                app.exit(0);
+            }
             _ => {}
         })
         .on_tray_icon_event(|tray, event| {
@@ -182,7 +195,7 @@ fn setup_tray(app: &tauri::App) -> tauri::Result<()> {
 }
 
 fn main() {
-    tauri::Builder::default()
+    let app = tauri::Builder::default()
         // 单实例：二次启动只把参数透传给首实例，不新建进程窗口
         .plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
             for arg in &argv {
@@ -206,6 +219,7 @@ fn main() {
             commands::settings,
             commands::save_settings,
             commands::popup_action,
+            commands::popup_detail,
             commands::show_main_window,
             commands::data_dir,
             commands::open_data_dir
@@ -222,6 +236,9 @@ fn main() {
             store_state::init_settings_cache()?;
             store_state::setup_watcher(app.handle())?;
 
+            // 调度循环：启动错过扫描 + 过期 snooze 清扫，随后每分钟对齐边界 tick
+            scheduler::start(app.handle().clone());
+
             // deep link：macOS 方案注册在构建期写入 Info.plist，运行期只订阅打开事件
             {
                 use tauri_plugin_deep_link::DeepLinkExt;
@@ -234,6 +251,15 @@ fn main() {
             }
             Ok(())
         })
-        .run(tauri::generate_context!())
+        .build(tauri::generate_context!())
         .expect("temporule 应用启动失败");
+    app.run(|_app, event| {
+        // 菜单栏常驻：最后一个窗口（含弹窗）关闭不退出应用；
+        // 托盘「退出拾律」走 app.exit（code = Some）不在此拦截
+        if let tauri::RunEvent::ExitRequested { api, code, .. } = event {
+            if code.is_none() {
+                api.prevent_exit();
+            }
+        }
+    });
 }

@@ -23,6 +23,7 @@ serde_json = "1"
 url = "2"
 temporule-core = { path = "../../crates/temporule-core" }
 chrono = { version = "0.4", features = ["serde"] }
+tokio = { version = "1", features = ["time"] }
 uuid = { version = "1", features = ["v4", "serde"] }
 directories = "6"
 notify = "8"

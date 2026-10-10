@@ -28,10 +28,12 @@ interface TauriEvent {
 
 /** 当前窗口句柄。 */
 interface TauriWindowHandle {
-  /** 窗口标签（dashboard / main）。 */
+  /** 窗口标签（dashboard / main / popup-{reminder_id}）。 */
   readonly label: string;
   /** 聚焦窗口。 */
   setFocus(): Promise<void>;
+  /** 关闭窗口。 */
+  close(): Promise<void>;
 }
 
 /** `window.__TAURI__` 全局对象。 */

@@ -91,6 +91,21 @@ export interface AppSettingsView {
   dashboard_hide_on_blur: boolean;
 }
 
+/** 弹窗行为（commands::PopupAlertView）：auto（自动消失）| force（强制处理）。 */
+export type PopupAlertView =
+  | { kind: "auto"; seconds: number }
+  | { kind: "force" };
+
+/** 弹窗内容（commands::PopupDetailView）。 */
+export interface PopupDetailView {
+  /** 标题。 */
+  title: string;
+  /** 备注。 */
+  note: string | null;
+  /** 弹窗行为。 */
+  alert: PopupAlertView;
+}
+
 const invoke = window.__TAURI__.core.invoke;
 
 /** 错误 → 可读文案（command 错误为字符串）。 */
@@ -189,6 +204,19 @@ export function fetchDataDir(): Promise<string> {
 /** 在访达中打开数据目录。 */
 export function openDataDir(): Promise<void> {
   return invoke<void>("open_data_dir");
+}
+
+/** 弹窗内容（提醒不存在 / ID 非法返回 null，弹窗视图自行关窗）。 */
+export function fetchPopupDetail(popupId: string): Promise<PopupDetailView | null> {
+  return invoke<PopupDetailView | null>("popup_detail", { popup_id: popupId });
+}
+
+/** 弹窗按钮动作：done 记完成并关窗；snooze 按提醒的稍后分钟数挂起并关窗。 */
+export function popupAction(
+  popupId: string,
+  action: "done" | "snooze",
+): Promise<void> {
+  return invoke<void>("popup_action", { popup_id: popupId, action });
 }
 
 /** 订阅「数据已变更」事件（外部修改提醒数据后触发）。 */

@@ -1,0 +1,88 @@
+/** 极简深色友好样式（占位阶段，切片 4 扩展）。 */
+
+:root {
+  color-scheme: dark;
+  --bg: #1c1c1e;
+  --fg: #f2f2f7;
+  --muted: #8e8e93;
+  --accent: #4f9cf9;
+  --panel: #2c2c2e;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font-family:
+    system-ui,
+    -apple-system,
+    "PingFang SC",
+    sans-serif;
+  font-size: 14px;
+}
+
+.view {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  height: 100vh;
+}
+
+.view-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.view-header h1 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--muted);
+}
+
+.hint {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.tab-bar {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--panel);
+}
+
+.tab-button {
+  padding: 8px 14px;
+  border: none;
+  border-radius: 6px 6px 0 0;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  cursor: pointer;
+}
+
+.tab-button.active {
+  background: var(--panel);
+  color: var(--accent);
+}
+
+.tab-content {
+  flex: 1;
+}
+
+.tab-pane {
+  padding: 12px 4px;
+}

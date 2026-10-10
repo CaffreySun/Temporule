@@ -1,0 +1,26 @@
+[package]
+name = "temporule-app"
+version = "0.1.0"
+description = "Temporule（拾律）Tauri GUI"
+edition = "2021"
+license = "MIT"
+
+# 独立 cargo 工作区：不并入仓库根 workspace（GUI 构建链路独立于 crates/）
+[workspace]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = ["tray-icon", "image-png"] }
+tauri-plugin-notification = "2"
+tauri-plugin-autostart = "2"
+tauri-plugin-deep-link = "2"
+tauri-plugin-single-instance = "2"
+anyhow = "1"
+serde_json = "1"
+url = "2"
+
+[profile.release]
+lto = true
+codegen-units = 1

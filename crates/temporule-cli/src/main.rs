@@ -1,11 +1,21 @@
 //! Temporule（拾律）CLI 入口。
 //!
 //! 子命令与 GUI 功能对等；业务逻辑一律走 temporule-core。
+//! 退出码：0 成功；2 用法与校验错误；1 IO 与运行时错误。
 
-use anyhow::Result;
+#![forbid(unsafe_code)]
 
-fn main() -> Result<()> {
-    // TDD 切片将在此接入 clap；占位仅为 harness 可编译
-    eprintln!("temporule CLI 尚未实现，见 .task_spec/temporule-v1.md");
-    Ok(())
+mod cli;
+mod commands;
+
+use clap::Parser;
+
+use crate::cli::Cli;
+
+fn main() {
+    let cli = Cli::parse();
+    if let Err(err) = commands::run(cli.command) {
+        eprintln!("{err:#}");
+        std::process::exit(commands::exit_code(&err));
+    }
 }

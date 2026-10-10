@@ -1,0 +1,28 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/temporule-core",
+    "crates/temporule-cli",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+repository = "https://github.com/CaffreySun/Temporule"
+
+[workspace.dependencies]
+# 统一版本源；各 crate 从这里引用，禁止散落版本号
+chrono = { version = "0.4", features = ["serde"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+uuid = { version = "1", features = ["v4", "serde"] }
+thiserror = "2"
+anyhow = "1"
+clap = { version = "4", features = ["derive"] }
+directories = "6"
+notify = "8"
+
+[profile.release]
+lto = true
+codegen-units = 1

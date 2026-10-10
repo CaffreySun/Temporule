@@ -1,0 +1,49 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  rust-gate:
+    name: fmt + clippy + test
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+      - name: fmt
+        run: cargo fmt --all -- --check
+      - name: clippy
+        run: cargo clippy --all-targets -- -D warnings
+      - name: test
+        run: cargo test --workspace
+
+  gui-build:
+    name: Tauri build
+    runs-on: macos-14
+    # GUI 骨架（第 3 切片）落地前自动跳过；落地后此条件恒真
+    if: ${{ hashFiles('app/package.json') != '' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - name: install deps
+        working-directory: app
+        run: npm ci
+      - name: tauri build
+        uses: tauri-apps/tauri-action@v0
+        with:
+          projectPath: app
+          args: --ci

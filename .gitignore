@@ -1,0 +1,19 @@
+# 构建产物
+/target/
+**/target/
+node_modules/
+dist/
+
+# 发布产物
+*.dmg
+*.app/
+
+# 运行时数据（绝不入库）
+state.json
+history.jsonl
+
+# 系统与编辑器
+.DS_Store
+*.swp
+.idea/
+.vscode/

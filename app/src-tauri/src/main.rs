@@ -68,45 +68,54 @@ pub(crate) fn work_area_logical(app: &AppHandle) -> Option<(f64, f64, f64, f64)>
     ))
 }
 
-/// 计算仪表盘窗口位置：主屏可见区域右下角，距 Dock 与右缘 16px。
+/// 计算仪表盘窗口位置：对齐托盘图标（菜单栏里它在哪，仪表盘就在哪）。
 ///
-/// 返回逻辑像素坐标；取不到主屏时返回 `None`（由系统默认定位兜底）。
+/// 用托盘图标 rect（物理像素、左上原点，与 `builder.position` 同坐标系）：
+/// 水平居中对齐托盘图标、垂直落在其下方 8px；x 在所属屏幕内夹取，防止贴边溢出。
+/// 取不到托盘 rect 时退化为主屏右上（菜单栏下方）。
 fn dashboard_position(app: &AppHandle) -> Option<(f64, f64)> {
-    let (work_x, work_y, work_w, work_h) = work_area_logical(app)?;
-    Some((
-        work_x + work_w - DASHBOARD_SIZE.0 - EDGE_MARGIN,
-        work_y + work_h - DASHBOARD_SIZE.1 - EDGE_MARGIN,
-    ))
-}
-
-/// 按「是否有可见前端窗口」切换激活策略。
-///
-/// 菜单栏常驻（Accessory）下非活跃 App 的窗口不会被置前/显示；
-/// 显示窗口前需切 Regular，全部隐藏后回 Accessory（无 Dock 图标）。
-pub(crate) fn update_activation_policy(app: &AppHandle) {
-    #[cfg(target_os = "macos")]
-    {
-        let any_visible = [DASHBOARD_LABEL, MAIN_LABEL, "popup-"]
-            .iter()
-            .any(|prefix| {
-                app.webview_windows()
-                    .values()
-                    .any(|w| w.label().starts_with(prefix) && w.is_visible().unwrap_or(false))
-            });
-        let policy = if any_visible {
-            tauri::ActivationPolicy::Regular
-        } else {
-            tauri::ActivationPolicy::Accessory
-        };
-        let _ = app.set_activation_policy(policy);
+    let tray_rect = app
+        .tray_by_id(TRAY_ID)
+        .and_then(|t| t.rect().ok().flatten())?;
+    // rect 返回物理像素（左上原点，与 builder.position 同坐标系）
+    let (tx, ty, tw, th) = match (tray_rect.position, tray_rect.size) {
+        // 物理分支为整数像素，逻辑分支为浮点——统一转 f64
+        (tauri::Position::Physical(p), tauri::Size::Physical(s)) => (
+            f64::from(p.x),
+            f64::from(p.y),
+            f64::from(s.width),
+            f64::from(s.height),
+        ),
+        (tauri::Position::Logical(p), tauri::Size::Logical(s)) => (p.x, p.y, s.width, s.height),
+        // 混合逻辑/物理组合不预期，放弃自定义定位
+        _ => return None,
+    };
+    let tray_cx = tx + tw / 2.0;
+    let mut x = tray_cx - DASHBOARD_SIZE.0 / 2.0;
+    let mut y = ty + th + 8.0;
+    // 在托盘所属屏幕内夹取
+    if let Ok(monitors) = app.available_monitors() {
+        if let Some(m) = monitors.iter().find(|m| {
+            let mx = m.position().x as f64;
+            let mw = m.size().width as f64;
+            tray_cx >= mx && tray_cx <= mx + mw
+        }) {
+            let mx = m.position().x as f64;
+            let my = m.position().y as f64;
+            let mw = m.size().width as f64;
+            let mh = m.size().height as f64;
+            x = x.clamp(mx + EDGE_MARGIN, mx + mw - DASHBOARD_SIZE.0 - EDGE_MARGIN);
+            y = y.min(my + mh - DASHBOARD_SIZE.1 - EDGE_MARGIN);
+        }
     }
+    Some((x, y))
 }
 
-/// 显示并聚焦仪表盘窗口；不存在时惰性创建（创建时定位屏幕右下）。
+/// 显示并聚焦仪表盘窗口；不存在时惰性创建。
+///
+/// 常驻 Accessory（无 Dock 图标）；`set_focus` 内部已带 `activateIgnoringOtherApps: YES`
+/// （tao set_focus 实现），非活跃 App 的窗口同样能置前激活。
 fn show_dashboard(app: &AppHandle) -> tauri::Result<WebviewWindow> {
-    // 显示前先切 Regular（此时窗口尚未可见，按可见性计算会误判为无窗口）
-    #[cfg(target_os = "macos")]
-    let _ = app.set_activation_policy(tauri::ActivationPolicy::Regular);
     if let Some(window) = app.get_webview_window(DASHBOARD_LABEL) {
         window.show()?;
         window.set_focus()?;
@@ -134,18 +143,12 @@ fn show_dashboard(app: &AppHandle) -> tauri::Result<WebviewWindow> {
     // 失焦自动隐藏（设置页「仪表盘失焦隐藏」开关控制，默认开）
     let handle = app.clone();
     window.on_window_event(move |event| {
-        match event {
-            tauri::WindowEvent::Focused(false) => {
-                if store_state::dashboard_hide_on_blur() {
-                    if let Some(window) = handle.get_webview_window(DASHBOARD_LABEL) {
-                        let _ = window.hide();
-                        update_activation_policy(&handle);
-                    }
+        if let tauri::WindowEvent::Focused(false) = event {
+            if store_state::dashboard_hide_on_blur() {
+                if let Some(window) = handle.get_webview_window(DASHBOARD_LABEL) {
+                    let _ = window.hide();
                 }
             }
-            // 用户点 X 关闭仪表盘：按剩余可见窗口回切
-            tauri::WindowEvent::Destroyed => update_activation_policy(&handle),
-            _ => {}
         }
     });
     window.show()?;
@@ -153,11 +156,8 @@ fn show_dashboard(app: &AppHandle) -> tauri::Result<WebviewWindow> {
     Ok(window)
 }
 
-/// 显示并聚焦主窗口；不存在时惰性创建（启动默认隐藏，仅经托盘 / deep link 唤起）。
+/// 显示并聚焦主窗口；不存在时惰性创建（启动默认隐藏，仅经托盘 / invoke 唤起）。
 pub(crate) fn show_main_window(app: &AppHandle) -> tauri::Result<WebviewWindow> {
-    // 显示前先切 Regular（同 show_dashboard）
-    #[cfg(target_os = "macos")]
-    let _ = app.set_activation_policy(tauri::ActivationPolicy::Regular);
     if let Some(window) = app.get_webview_window(MAIN_LABEL) {
         window.show()?;
         window.set_focus()?;
@@ -175,15 +175,6 @@ pub(crate) fn show_main_window(app: &AppHandle) -> tauri::Result<WebviewWindow> 
     .transparent(true)
     .hidden_title(true)
     .build()?;
-    let handle = app.clone();
-    window.on_window_event(move |event| {
-        if matches!(
-            event,
-            tauri::WindowEvent::Destroyed | tauri::WindowEvent::CloseRequested { .. }
-        ) {
-            update_activation_policy(&handle);
-        }
-    });
     window.show()?;
     window.set_focus()?;
     Ok(window)

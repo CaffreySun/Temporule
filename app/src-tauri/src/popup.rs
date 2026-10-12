@@ -278,8 +278,6 @@ fn build_window(app: &AppHandle, spec: PopupSpec, generation: u64) {
         window.on_window_event(move |event| {
             if matches!(event, tauri::WindowEvent::Destroyed) {
                 on_window_destroyed(&app, &label);
-                // 弹窗关闭后按剩余可见窗口回切激活策略（如仅弹窗可见则回 Accessory）
-                crate::update_activation_policy(&app);
             }
         });
     }

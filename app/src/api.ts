@@ -96,6 +96,14 @@ export interface AppSettingsView {
 /** 弹窗行为（commands::PopupAlertView）：auto（自动消失）| force（强制处理）。 */
 export type PopupAlertView = { kind: "auto"; seconds: number } | { kind: "force" };
 
+/** 应用信息（commands::AppInfo）。 */
+export interface AppInfo {
+  /** 应用名。 */
+  name: string;
+  /** 版本号（如 `0.1.0`）。 */
+  version: string;
+}
+
 /** 弹窗内容（commands::PopupDetailView）。 */
 export interface PopupDetailView {
   /** 标题。 */
@@ -218,6 +226,16 @@ export function fetchDataDir(): Promise<string> {
 /** 在访达中打开数据目录。 */
 export function openDataDir(): Promise<void> {
   return invoke<void>("open_data_dir");
+}
+
+/** 应用名与版本号（关于面板品牌区）。 */
+export function appInfo(): Promise<AppInfo> {
+  return invoke<AppInfo>("app_info");
+}
+
+/** 用系统默认浏览器打开 http(s) 链接（关于面板 GitHub 链接）。 */
+export function openExternal(url: string): Promise<void> {
+  return invoke<void>("open_external", { url });
 }
 
 /** 弹窗内容（提醒不存在 / ID 非法返回 null，弹窗视图自行关窗）。 */

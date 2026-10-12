@@ -466,6 +466,55 @@ pub fn open_data_dir() -> Result<(), String> {
         })
 }
 
+/// 应用信息（关于面板展示）。
+#[derive(Debug, Clone, Serialize)]
+pub struct AppInfo {
+    /// 应用名（`package_info().name`）。
+    pub name: String,
+    /// 版本号（`package_info().version`，如 `0.1.0`）。
+    pub version: String,
+}
+
+/// 应用名与版本号（关于面板品牌区数据）。
+#[tauri::command(rename_all = "snake_case")]
+pub fn app_info(app: AppHandle) -> AppInfo {
+    let info = app.package_info();
+    AppInfo {
+        name: info.name.clone(),
+        version: info.version.to_string(),
+    }
+}
+
+/// 用系统默认浏览器打开 http(s) 链接（关于面板的 GitHub 仓库链接）。
+///
+/// 平台差异集中在本函数（CONVENTIONS §1 跨平台就绪规范）：macOS 走 `open` 命令，
+/// 其他平台暂无实现，上抛中文错误。
+#[tauri::command(rename_all = "snake_case")]
+pub fn open_external(url: String) -> Result<(), String> {
+    if !(url.starts_with("https://") || url.starts_with("http://")) {
+        return Err(format!("仅支持 http/https 链接：{url}"));
+    }
+    #[cfg(target_os = "macos")]
+    {
+        std::process::Command::new("open")
+            .arg(&url)
+            .status()
+            .map_err(|err| format!("无法打开链接：{err}"))
+            .and_then(|status| {
+                if status.success() {
+                    Ok(())
+                } else {
+                    Err("无法打开链接".to_string())
+                }
+            })
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = url;
+        Err("当前平台暂不支持".to_string())
+    }
+}
+
 /// `StoreError` → 前端可读中文提示；SaveConflict 映射为固定冲突文案。
 fn err_string(err: StoreError) -> String {
     match err {

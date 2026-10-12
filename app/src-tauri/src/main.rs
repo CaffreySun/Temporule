@@ -287,7 +287,9 @@ fn main() {
             commands::data_dir,
             commands::open_data_dir,
             commands::store_rev,
-            commands::request_notification_permission
+            commands::request_notification_permission,
+            commands::app_info,
+            commands::open_external
         ])
         .setup(|app| {
             // 菜单栏常驻：无 Dock / Cmd-Tab 图标（macOS 专有 API，见 CONVENTIONS §1 跨平台就绪规范）

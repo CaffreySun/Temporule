@@ -53,3 +53,9 @@ interface Window {
   /** Tauri 注入的全局 API。 */
   __TAURI__: TauriGlobal;
 }
+
+/** Vite 静态资源导入（.png）→ 产物 URL。 */
+declare module "*.png" {
+  const src: string;
+  export default src;
+}

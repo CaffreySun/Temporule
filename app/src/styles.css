@@ -275,13 +275,55 @@ body {
   border-right: 1px solid var(--border);
 }
 
-/* 侧栏标题「拾律」13/600 */
-.sidebar-brand {
-  margin: 0;
-  /* 避让 Overlay 标题栏的红绿灯（左侧 ~70×28px 区域） */
-  padding: calc(28px + var(--space-sm)) var(--space-sm) var(--space-sm);
+/* 侧栏顶部红绿灯占位（Overlay 标题栏红绿灯在左侧 ~70×28px 区域） */
+.sidebar-traffic-pad {
+  flex: 0 0 28px;
+}
+
+/* 侧栏底部品牌区：整块可点 = 「关于拾律」入口，hover 提亮 */
+.sidebar-footer {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-top: auto;
+  padding: var(--space-md);
+  border: none;
+  border-top: 1px solid var(--border);
+  border-radius: var(--radius-ctl);
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color var(--dur) var(--ease);
+}
+
+.sidebar-footer:hover {
+  background: var(--surface-hover);
+}
+
+.sidebar-footer:focus-visible {
+  outline: 1px solid var(--accent);
+}
+
+/* 32×32 应用 logo（圆角 8，raised 衬底） */
+.sidebar-footer-logo {
+  width: 32px;
+  height: 32px;
+  flex: 0 0 32px;
+  border-radius: 8px;
+  background: var(--surface-raised);
+  object-fit: cover;
+}
+
+/* 「拾律」13/600 + 版本号 11/400 text-dim */
+.sidebar-footer-name {
   font-size: var(--font-title-size);
   font-weight: 600;
+}
+
+.sidebar-footer-version {
+  font-size: var(--font-aux-size);
+  color: var(--text-dim);
 }
 
 /* 导航行：28px 高、圆角 6；激活态 = surface-hover 底 + accent 文字 */
@@ -800,6 +842,80 @@ body {
   display: flex;
   gap: var(--space-sm);
   justify-content: flex-end;
+}
+
+/* —— 关于面板（复用 dialog 遮罩，纵向居中布局） —— */
+
+.dialog.about {
+  position: relative;
+  width: 320px;
+  min-width: 0;
+  max-width: 320px;
+  align-items: center;
+  border-radius: var(--radius-win);
+  padding: var(--space-lg);
+  text-align: center;
+}
+
+/* 64×64 logo */
+.about-logo {
+  width: 64px;
+  height: 64px;
+  border-radius: var(--radius-card);
+}
+
+/* 「拾律」15/600 */
+.about-name {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+/* 版本行 11/400 text-dim */
+.about-version {
+  margin: 0;
+  font-size: var(--font-aux-size);
+  color: var(--text-dim);
+}
+
+/* 许可信息 12px text-dim */
+.about-license {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+/* GitHub 链接（accent 色按钮，点击经 open_external 打开） */
+.about-link {
+  border: none;
+  background: transparent;
+  color: var(--accent);
+  font: inherit;
+  cursor: pointer;
+}
+
+.about-link:hover {
+  text-decoration: underline;
+}
+
+/* 右上 ✕ 关闭按钮 */
+.about-close {
+  position: absolute;
+  top: var(--space-sm);
+  right: var(--space-sm);
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: var(--radius-ctl);
+  background: transparent;
+  color: var(--text-dim);
+  font: inherit;
+  cursor: pointer;
+}
+
+.about-close:hover {
+  background: var(--surface-hover);
+  color: var(--text);
 }
 
 /* —— 弹窗（popup-* 窗口，~360×140） —— */

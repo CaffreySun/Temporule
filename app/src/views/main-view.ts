@@ -1,11 +1,13 @@
 /**
- * 主窗口视图（v3）：左侧边栏（标题「拾律」+ 三导航行 提醒/历史/设置，图标 16px 单色 SVG）
- * + 右内容区（顶部 28px 红绿灯避让 drag 条 + 页标题 15/600 + 右上 ghost「+ 新增」（仅提醒页））。
+ * 主窗口视图（v3）：左侧边栏（红绿灯占位 + 三导航行 提醒/历史/设置，图标 16px 单色 SVG
+ * + 底部品牌区 logo/应用名/版本，整块可点打开关于面板）+ 右内容区（顶部 28px 红绿灯避让
+ * drag 条 + 页标题 15/600 + 右上 ghost「+ 新增」（仅提醒页））。
  * 提醒页 = 行列表（v2 Row，同仪表盘）；历史页 = 时间线（日期分组头 + 行：时间 tabular +
  * 状态点 + 标题）；设置页 = 分组（分组标题 11/600 + 行式开关）。
  * 组件约定：组件 = 一个返回 HTMLElement 的函数。
  */
 import {
+  appInfo,
   fetchHistory,
   fetchDataDir,
   fetchSettings,
@@ -19,7 +21,8 @@ import {
   type AppSettingsView,
   type ReminderDetail,
 } from "../api";
-import { alertDialog } from "../components/dialog";
+import { aboutDialog, alertDialog } from "../components/dialog";
+import logoUrl from "../assets/Temporule_AppIcon.png";
 import { reminderForm } from "../components/reminder-form";
 import { reminderRow } from "../components/reminder-row";
 
@@ -380,15 +383,38 @@ export function mainView(): HTMLElement {
   const root = document.createElement("section");
   root.className = "view main";
 
-  // 左侧边栏：标题「拾律」+ 三导航行
+  // 左侧边栏：顶部红绿灯占位 + 三导航行 + 底部品牌区（整块可点 = 关于面板）
   const sidebar = document.createElement("aside");
   sidebar.className = "sidebar";
-  const brand = document.createElement("p");
-  brand.className = "sidebar-brand";
-  brand.textContent = "拾律";
+  const trafficPad = document.createElement("div");
+  trafficPad.className = "sidebar-traffic-pad";
   const nav = document.createElement("nav");
   nav.className = "side-nav";
-  sidebar.append(brand, nav);
+  const footer = document.createElement("button");
+  footer.type = "button";
+  footer.className = "sidebar-footer";
+  footer.setAttribute("aria-label", "关于拾律");
+  const footerLogo = document.createElement("img");
+  footerLogo.className = "sidebar-footer-logo";
+  footerLogo.src = logoUrl;
+  footerLogo.alt = "";
+  const footerText = document.createElement("span");
+  footerText.className = "sidebar-footer-name";
+  footerText.textContent = "拾律";
+  const footerVersion = document.createElement("span");
+  footerVersion.className = "sidebar-footer-version";
+  appInfo()
+    .then((info) => {
+      footerVersion.textContent = info.version;
+    })
+    .catch(() => {
+      // 版本号取不到不阻塞侧栏渲染
+    });
+  footer.addEventListener("click", () => {
+    void appInfo().then((info) => aboutDialog(info.name, info.version));
+  });
+  footer.append(footerLogo, footerText, footerVersion);
+  sidebar.append(trafficPad, nav, footer);
 
   // 内容区：顶部 28px 红绿灯避让条（drag 可拖动）+ 页标题行 + pane 容器
   const content = document.createElement("div");

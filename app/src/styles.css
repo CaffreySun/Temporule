@@ -9,6 +9,7 @@
 
   /* 语义色板 */
   --surface: #1f1f22;
+  --surface-side: #1a1a1d;
   --surface-raised: #2a2a2e;
   --surface-hover: rgba(255, 255, 255, 0.04);
   --toolbar: rgba(255, 255, 255, 0.02);
@@ -257,57 +258,104 @@ body {
   flex: 1;
 }
 
-/* —— 主窗口顶部栏：Tab 列表 + 右上「+ 新增」 —— */
+/* —— 主窗口 v3 骨架：左侧边栏 + 内容区两栏 —— */
 
-.main-topbar {
+.view.main {
+  flex-direction: row;
+}
+
+/* 侧栏：180px 独立背景（比内容区深一档），与内容区 1px 分隔 */
+.sidebar {
   display: flex;
-  align-items: stretch;
-  gap: var(--space-sm);
-  padding: 0 var(--space-md);
-  border-bottom: 1px solid var(--border);
+  flex-direction: column;
+  flex: 0 0 180px;
+  gap: var(--space-md);
+  padding: var(--space-md) var(--space-sm);
+  background: var(--surface-side);
+  border-right: 1px solid var(--border);
 }
 
-.tab-bar {
+/* 侧栏标题「拾律」13/600 */
+.sidebar-brand {
+  margin: 0;
+  /* 避让 Overlay 标题栏的红绿灯（左侧 ~70×28px 区域） */
+  padding: calc(28px + var(--space-sm)) var(--space-sm) var(--space-sm);
+  font-size: var(--font-title-size);
+  font-weight: 600;
+}
+
+/* 导航行：28px 高、圆角 6；激活态 = surface-hover 底 + accent 文字 */
+.nav-item {
   display: flex;
+  align-items: center;
   gap: var(--space-sm);
-}
-
-.main-topbar-spacer {
-  flex: 1;
-}
-
-.main-topbar .button.ghost {
-  align-self: center;
-}
-
-/* —— Tabs：当前项 text + 底部 2px accent 指示条，其余 text-dim —— */
-
-.tab-button {
-  padding: var(--space-md) var(--space-md) var(--space-sm);
+  height: 28px;
+  padding: 0 var(--space-sm);
   border: none;
+  border-radius: var(--radius-ctl);
   background: transparent;
   color: var(--text-dim);
   font: inherit;
   cursor: pointer;
-  transition: color var(--dur) var(--ease);
+  transition:
+    color var(--dur) var(--ease),
+    background-color var(--dur) var(--ease);
 }
 
-.tab-button:hover {
+.nav-item:hover {
   color: var(--text);
+  background: var(--surface-hover);
 }
 
-.tab-button.active {
-  color: var(--text);
-  font-weight: 500;
-  box-shadow: inset 0 -2px 0 var(--accent);
+.nav-item.active {
+  color: var(--accent);
+  background: var(--surface-hover);
 }
 
-.tab-content {
+/* 16px 单色 SVG 图标（currentColor） */
+.nav-icon {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
+}
+
+/* 内容区：顶部 28px 红绿灯避让条（drag 可拖动）+ 页标题 + pane */
+.main-content {
+  display: flex;
   flex: 1;
+  flex-direction: column;
   overflow: auto;
 }
 
-/* 主窗口三 Tab 内容区 */
+.traffic-avoid {
+  flex: 0 0 28px;
+  user-select: none;
+}
+
+.content-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: 0 var(--space-lg);
+  border-bottom: 1px solid var(--border);
+}
+
+.page-title {
+  margin: 0;
+  padding: var(--space-sm) 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.content-head-spacer {
+  flex: 1;
+}
+
+.content-head .button.ghost {
+  margin-bottom: var(--space-sm);
+}
+
+/* 主窗口三 Nav 内容区 */
 .tab-pane {
   display: flex;
   flex-direction: column;
@@ -317,6 +365,13 @@ body {
 .tab-pane > .reminder-form {
   flex: 1;
   min-height: 0;
+}
+
+/* 空态：内容区中央 13px text-dim 提示语 */
+.empty-hint {
+  margin: auto;
+  padding: var(--space-lg);
+  color: var(--text-dim);
 }
 
 /* —— Row（v2 核心组件）：仪表盘与主窗口提醒页共用 ——
@@ -797,4 +852,35 @@ body {
   font-variant-numeric: tabular-nums;
   color: var(--text-dim);
   white-space: nowrap;
+}
+
+/* —— v3 质感细节 —— */
+
+/* 焦点环：交互控件 focus-visible 时 2px accent 外环（offset 2px） */
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* 细滚动条：8px、thumb --border 圆角、hover 提亮（仪表盘列表与主窗口历史滚动区） */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--border-hover);
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
 }

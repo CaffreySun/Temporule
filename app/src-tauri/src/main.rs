@@ -168,6 +168,10 @@ pub(crate) fn show_main_window(app: &AppHandle) -> tauri::Result<WebviewWindow> 
     )
     .title("拾律")
     .inner_size(MAIN_SIZE.0, MAIN_SIZE.1)
+    // v3：Overlay 透明标题栏——红绿灯浮在深色内容上方，标题栏与内容同为 --surface，零割裂
+    .title_bar_style(tauri::TitleBarStyle::Overlay)
+    .transparent(true)
+    .hidden_title(true)
     .build()?;
     let handle = app.clone();
     window.on_window_event(move |event| {

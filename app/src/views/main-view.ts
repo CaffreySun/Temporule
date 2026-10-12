@@ -1,8 +1,8 @@
 /**
- * 主窗口视图（v2）：顶部栏 = Tab（当前项 text + 底部 2px accent 指示条，其余 text-dim）
- * + 右上 ghost「+ 新增」。提醒页 = 行列表（v2 Row，同仪表盘）；历史页 = 时间线
- * （日期分组头 + 行：时间 tabular + 状态点 + 标题）；设置页 = 分组（分组标题 11/600 +
- * 行式开关）。
+ * 主窗口视图（v3）：左侧边栏（标题「拾律」+ 三导航行 提醒/历史/设置，图标 16px 单色 SVG）
+ * + 右内容区（顶部 28px 红绿灯避让 drag 条 + 页标题 15/600 + 右上 ghost「+ 新增」（仅提醒页））。
+ * 提醒页 = 行列表（v2 Row，同仪表盘）；历史页 = 时间线（日期分组头 + 行：时间 tabular +
+ * 状态点 + 标题）；设置页 = 分组（分组标题 11/600 + 行式开关）。
  * 组件约定：组件 = 一个返回 HTMLElement 的函数。
  */
 import {
@@ -26,31 +26,31 @@ import { reminderRow } from "../components/reminder-row";
 /** 历史展示上限。 */
 const HISTORY_LIMIT = 200;
 
-/** 提醒 Tab 句柄：供顶部「+ 新增」安全触发（表单挂载中为空操作，不吞未保存输入）。 */
-interface RemindersTabHandle {
+/** 提醒 Nav 句柄：供顶部「+ 新增」安全触发（表单挂载中为空操作，不吞未保存输入）。 */
+interface RemindersNavHandle {
   /** 打开新增表单。 */
   openNew: () => void;
 }
 
-/** Tab 配置：标题 + 激活时的重建函数（由 mainView 注入）。 */
-interface TabSpec {
-  /** Tab 标识。 */
+/** Nav 配置：标题 + 激活时的重建函数（由 mainView 注入）。 */
+interface NavSpec {
+  /** Nav 标识。 */
   id: string;
-  /** Tab 中文标题。 */
+  /** Nav 中文标题。 */
   title: string;
-  /** 激活该 Tab 时重建内容；提醒 Tab 返回句柄，其余返回 null。 */
-  refresh: (pane: HTMLElement) => RemindersTabHandle | null;
+  /** 激活该 Nav 时重建内容；提醒 Nav 返回句柄，其余返回 null。 */
+  refresh: (pane: HTMLElement) => RemindersNavHandle | null;
 }
 
-/** 一个 Tab 的完整句柄。 */
-interface TabHandle {
-  spec: TabSpec;
+/** 一个 Nav 的完整句柄。 */
+interface NavHandle {
+  spec: NavSpec;
   button: HTMLButtonElement;
   pane: HTMLElement;
 }
 
-/** 提醒 Tab：行列表 ↔ 表单 双态；表单挂载期间不重build（不吞未保存输入）。 */
-function renderRemindersTab(pane: HTMLElement): RemindersTabHandle {
+/** 提醒 Nav：行列表 ↔ 表单 双态；表单挂载期间不重build（不吞未保存输入）。 */
+function renderRemindersNav(pane: HTMLElement): RemindersNavHandle {
   const showForm = (initial: ReminderDetail | undefined): void => {
     pane.replaceChildren(
       reminderForm({
@@ -76,8 +76,8 @@ function renderRemindersTab(pane: HTMLElement): RemindersTabHandle {
         listBox.replaceChildren();
         if (reminders.length === 0) {
           const empty = document.createElement("p");
-          empty.className = "hint";
-          empty.textContent = "暂无提醒，点击「+ 新增」创建第一条。";
+          empty.className = "empty-hint";
+          empty.textContent = "还没有提醒，点右上角新增";
           listBox.append(empty);
           return;
         }
@@ -107,7 +107,7 @@ function renderRemindersTab(pane: HTMLElement): RemindersTabHandle {
     }
   };
 
-  // 表单挂载期间不重建（store-changed / 切 Tab 均不吞未保存输入；保存/取消收尾时重建列表）
+  // 表单挂载期间不重建（store-changed / 切 Nav 均不吞未保存输入；保存/取消收尾时重建列表）
   if (pane.querySelector("form.reminder-form") === null) {
     showTable();
   }
@@ -129,8 +129,8 @@ function formatDateGroup(iso: string): string {
   return `${pad(date.getMonth() + 1)}-${pad(date.getDate())} 周${weekdays[date.getDay()]}`;
 }
 
-/** 历史 Tab：时间线（日期分组头 + 行：时间 tabular + 状态点 + 标题），新→旧。 */
-function renderHistoryTab(pane: HTMLElement): null {
+/** 历史 Nav：时间线（日期分组头 + 行：时间 tabular + 状态点 + 标题），新→旧。 */
+function renderHistoryNav(pane: HTMLElement): null {
   pane.replaceChildren();
   const loading = document.createElement("p");
   loading.className = "hint";
@@ -142,8 +142,8 @@ function renderHistoryTab(pane: HTMLElement): null {
       pane.replaceChildren();
       if (entries.length === 0) {
         const empty = document.createElement("p");
-        empty.className = "hint";
-        empty.textContent = "暂无历史记录。";
+        empty.className = "empty-hint";
+        empty.textContent = "还没有历史记录";
         pane.append(empty);
         return;
       }
@@ -188,8 +188,8 @@ function renderHistoryTab(pane: HTMLElement): null {
   return null;
 }
 
-/** 设置 Tab：分组（通用 / 声音 / 隐私与数据）+ 行式开关 + 数据目录。 */
-function renderSettingsTab(pane: HTMLElement): null {
+/** 设置 Nav：分组（通用 / 声音 / 隐私与数据）+ 行式开关 + 数据目录。 */
+function renderSettingsNav(pane: HTMLElement): null {
   pane.replaceChildren();
   const loading = document.createElement("p");
   loading.className = "hint";
@@ -207,7 +207,7 @@ function renderSettingsTab(pane: HTMLElement): null {
             settings = next;
           })
           .catch((err: unknown) => {
-            void alertDialog(formatError(err)).then(() => renderSettingsTab(pane));
+            void alertDialog(formatError(err)).then(() => renderSettingsNav(pane));
           });
       };
 
@@ -339,48 +339,98 @@ function renderSettingsTab(pane: HTMLElement): null {
   return null;
 }
 
+/** 16px 单色 SVG 图标（currentColor）：铃铛 / 时钟 / 齿轮。 */
+function navIcon(kind: string): SVGSVGElement {
+  const ns = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(ns, "svg");
+  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.classList.add("nav-icon");
+  svg.setAttribute("aria-hidden", "true");
+  const path = document.createElementNS(ns, "path");
+  path.setAttribute("fill", "currentColor");
+  switch (kind) {
+    case "reminders":
+      // 铃铛
+      path.setAttribute(
+        "d",
+        "M12 2a7 7 0 0 0-7 7v4.1L3.3 17a1 1 0 0 0 .87 1.5h15.66A1 1 0 0 0 20.7 17L19 13.1V9a7 7 0 0 0-7-7Zm0 20a3 3 0 0 0 2.83-2H9.17A3 3 0 0 0 12 22Z",
+      );
+      break;
+    case "history":
+      // 时钟
+      path.setAttribute(
+        "d",
+        "M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm1 10.41V6a1 1 0 1 0-2 0v6.83a1 1 0 0 0 .3.7l3.5 3.5a1 1 0 0 0 1.4-1.4L13 11.41Z",
+      );
+      break;
+    default:
+      // 齿轮
+      path.setAttribute(
+        "d",
+        "M10.33 2.59a2 2 0 0 1 3.34 0l.83 1.34c.2.32.56.51.94.48l1.58-.11a2 2 0 0 1 2.13 2.13l-.11 1.58c-.03.38.16.74.48.94l1.34.83a2 2 0 0 1 0 3.34l-1.34.83a1.08 1.08 0 0 0-.48.94l.11 1.58a2 2 0 0 1-2.13 2.13l-1.58-.11a1.08 1.08 0 0 0-.94.48l-.83 1.34a2 2 0 0 1-3.34 0l-.83-1.34a1.08 1.08 0 0 0-.94-.48l-1.58.11a2 2 0 0 1-2.13-2.13l.11-1.58a1.08 1.08 0 0 0-.48-.94l-1.34-.83a2 2 0 0 1 0-3.34l1.34-.83c.32-.2.51-.56.48-.94l-.11-1.58A2 2 0 0 1 6.98 3.8l1.58.11c.38.03.74-.16.94-.48l.83-1.34ZM12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Z",
+      );
+      break;
+  }
+  svg.append(path);
+  return svg;
+}
+
 /** 构建主窗口视图。 */
 export function mainView(): HTMLElement {
   const root = document.createElement("section");
   root.className = "view main";
 
-  // 顶部栏：Tab 列表（左）+ 右上 ghost「+ 新增」（仅提醒页可见）
-  const topBar = document.createElement("div");
-  topBar.className = "main-topbar";
-  const tabBar = document.createElement("nav");
-  tabBar.className = "tab-bar";
-  const spacer = document.createElement("div");
-  spacer.className = "main-topbar-spacer";
+  // 左侧边栏：标题「拾律」+ 三导航行
+  const sidebar = document.createElement("aside");
+  sidebar.className = "sidebar";
+  const brand = document.createElement("p");
+  brand.className = "sidebar-brand";
+  brand.textContent = "拾律";
+  const nav = document.createElement("nav");
+  nav.className = "side-nav";
+  sidebar.append(brand, nav);
+
+  // 内容区：顶部 28px 红绿灯避让条（drag 可拖动）+ 页标题行 + pane 容器
+  const content = document.createElement("div");
+  content.className = "main-content";
+  const avoidBar = document.createElement("div");
+  avoidBar.className = "traffic-avoid";
+  avoidBar.setAttribute("data-tauri-drag-region", "deep");
+  const contentHead = document.createElement("div");
+  contentHead.className = "content-head";
+  const pageTitle = document.createElement("h1");
+  pageTitle.className = "page-title";
+  const headSpacer = document.createElement("div");
+  headSpacer.className = "content-head-spacer";
   const addButton = document.createElement("button");
   addButton.type = "button";
   addButton.className = "button ghost";
   addButton.textContent = "+ 新增";
   addButton.hidden = true;
-  topBar.append(tabBar, spacer, addButton);
-  const content = document.createElement("div");
-  content.className = "tab-content";
+  contentHead.append(pageTitle, headSpacer, addButton);
+  content.append(avoidBar, contentHead);
 
-  const specs: TabSpec[] = [
-    { id: "reminders", title: "提醒", refresh: renderRemindersTab },
-    { id: "history", title: "历史", refresh: renderHistoryTab },
-    { id: "settings", title: "设置", refresh: renderSettingsTab },
+  const specs: NavSpec[] = [
+    { id: "reminders", title: "提醒", refresh: renderRemindersNav },
+    { id: "history", title: "历史", refresh: renderHistoryNav },
+    { id: "settings", title: "设置", refresh: renderSettingsNav },
   ];
-  const handles: TabHandle[] = specs.map((spec) => {
+  const handles: NavHandle[] = specs.map((spec) => {
     const button = document.createElement("button");
     button.type = "button";
-    button.className = "tab-button";
-    button.textContent = spec.title;
+    button.className = "nav-item";
+    button.append(navIcon(spec.id), document.createTextNode(spec.title));
     const pane = document.createElement("div");
     pane.className = "tab-pane";
-    tabBar.append(button);
+    nav.append(button);
     content.append(pane);
     return { spec, button, pane };
   });
 
-  /** 提醒 Tab 句柄（供「+ 新增」触发；表单挂载中为空操作）。 */
-  let remindersHandle: RemindersTabHandle | null = null;
+  /** 提醒 Nav 句柄（供「+ 新增」触发；表单挂载中为空操作）。 */
+  let remindersHandle: RemindersNavHandle | null = null;
 
-  /** 切换到指定 Tab 并重建其内容。 */
+  /** 切换到指定 Nav 并重建其内容。 */
   const activate = (id: string): void => {
     for (const handle of handles) {
       const active = handle.spec.id === id;
@@ -388,6 +438,7 @@ export function mainView(): HTMLElement {
       handle.button.classList.toggle("active", active);
       if (active) {
         remindersHandle = handle.spec.refresh(handle.pane);
+        pageTitle.textContent = handle.spec.title;
       }
     }
     addButton.hidden = id !== "reminders";
@@ -401,7 +452,7 @@ export function mainView(): HTMLElement {
     handle.button.addEventListener("click", () => activate(handle.spec.id));
   }
 
-  // 外部修改提醒数据（CLI 等）→ 重载提醒与历史两个数据 Tab
+  // 外部修改提醒数据（CLI 等）→ 重载提醒与历史两个数据 Nav
   onStoreChanged(() => {
     for (const handle of handles) {
       if (!handle.pane.hidden && handle.spec.id !== "settings") {
@@ -410,7 +461,7 @@ export function mainView(): HTMLElement {
     }
   });
 
-  root.append(topBar, content);
+  root.append(sidebar, content);
   activate(specs[0]!.id);
   return root;
 }

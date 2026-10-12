@@ -70,6 +70,19 @@ body {
   font-weight: 400;
 }
 
+/* 无边框悬浮面板（仪表盘/弹窗）：透明窗口 + CSS 圆角
+   窗口 transparent(true) 时 body 背景必须透明，由 #app 承担圆角与背景 */
+body.panel-rounded {
+  background: transparent;
+}
+
+body.panel-rounded #app {
+  height: 100vh;
+  background: var(--surface);
+  border-radius: var(--radius-win);
+  overflow: hidden;
+}
+
 .view {
   display: flex;
   flex-direction: column;

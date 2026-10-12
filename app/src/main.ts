@@ -15,6 +15,11 @@ if (root === null) {
 // getCurrentWindow 的 label 元数据，故窗口创建时带 ?view=），label 仅作回退；
 // 弹窗 URL 形如 index.html?view=popup&pid={reminder_id}#{popup_id}，每窗唯一。
 const viewParam = new URLSearchParams(window.location.search).get("view");
+// 无边框窗口（仪表盘/弹窗）用透明窗口 + CSS 圆角：根节点加 panel-rounded 类
+const isPanel = viewParam === "popup" || viewParam === "dashboard";
+if (isPanel) {
+  document.body.classList.add("panel-rounded");
+}
 if (viewParam === "popup") {
   root.append(popupView());
 } else {

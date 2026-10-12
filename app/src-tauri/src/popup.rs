@@ -242,7 +242,9 @@ fn build_window(app: &AppHandle, spec: PopupSpec, generation: u64) {
     .closable(true)
     .minimizable(false)
     // 无系统标题栏：标题区自绘（前端标题行可拖动 + 关闭按钮）
+    // transparent：frameless 窗口 macOS 不自动圆角，靠透明窗口 + CSS 圆角实现
     .decorations(false)
+    .transparent(true)
     // 不抢焦点：弹窗不成 key window（按钮仍可点击），用户正在输入的上下文不被打断
     .focusable(false)
     // 页面加载完成后补发当前 popup_id（同 tick 内二次触发可能早于前端监听注册）

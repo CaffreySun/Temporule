@@ -124,7 +124,9 @@ fn show_dashboard(app: &AppHandle) -> tauri::Result<WebviewWindow> {
     .closable(true)
     .minimizable(false)
     // 悬浮面板无系统标题栏：标题区自绘（前端 header 可拖动 + 关闭按钮）
-    .decorations(false);
+    // transparent：frameless 窗口 macOS 不自动圆角，靠透明窗口 + CSS 圆角实现
+    .decorations(false)
+    .transparent(true);
     if let Some((x, y)) = dashboard_position(app) {
         builder = builder.position(x, y);
     }

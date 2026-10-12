@@ -575,3 +575,16 @@ fn history_json_is_newest_first() {
     assert!(entries[0]["at"].as_str() >= entries[1]["at"].as_str());
     assert_eq!(entries[0]["status"], "snoozed");
 }
+
+/// `open` 写 invoke.json（文件落点 IPC），TEMPORULE_NO_LAUNCH 下不启动 App。
+#[test]
+fn open_writes_invoke_file_without_launching() {
+    let data = TempDir::new().unwrap();
+    temporule(&data)
+        .env("TEMPORULE_NO_LAUNCH", "1")
+        .arg("open")
+        .assert()
+        .success();
+    let invoke = read_data(&data, "invoke.json");
+    assert_eq!(invoke.trim(), r#"{"action":"show_dashboard"}"#);
+}

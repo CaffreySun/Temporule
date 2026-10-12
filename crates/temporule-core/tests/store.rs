@@ -406,3 +406,36 @@ fn settings_save_leaves_no_tmp_files_behind() {
         .filter_map(|e| e.ok())
         .all(|e| !e.file_name().to_string_lossy().ends_with(".tmp")));
 }
+
+#[test]
+fn write_invoke_then_take_returns_action_and_consumes_file() {
+    let dir = tempfile::tempdir().unwrap();
+    let store = Store::open(dir.path()).unwrap();
+
+    store.write_invoke("show_main").unwrap();
+    // 文件已落盘
+    assert!(dir.path().join("invoke.json").exists());
+
+    let action = store.take_invoke().unwrap();
+    assert_eq!(action.as_deref(), Some("show_main"));
+    // consume-once：取走即删
+    assert!(!dir.path().join("invoke.json").exists());
+    assert_eq!(store.take_invoke().unwrap(), None);
+}
+
+#[test]
+fn take_invoke_returns_none_when_file_missing() {
+    let dir = tempfile::tempdir().unwrap();
+    let store = Store::open(dir.path()).unwrap();
+    assert_eq!(store.take_invoke().unwrap(), None);
+}
+
+#[test]
+fn take_invoke_tolerates_corrupt_file() {
+    let dir = tempfile::tempdir().unwrap();
+    let store = Store::open(dir.path()).unwrap();
+    std::fs::write(dir.path().join("invoke.json"), b"{not json").unwrap();
+    assert_eq!(store.take_invoke().unwrap(), None);
+    // 坏文件被消费删除
+    assert!(!dir.path().join("invoke.json").exists());
+}

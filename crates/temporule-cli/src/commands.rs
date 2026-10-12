@@ -64,27 +64,27 @@ pub fn run(command: Command) -> Result<()> {
 
 /// `open`：唤起 GUI 仪表盘。
 ///
-/// 先走 deep link `open temporule://dashboard`，失败退化 `open -a Temporule`；
-/// 两条路径都失败则报运行时错误（退出码 1）。
+/// 机制 = 文件落点 IPC（CLI 原子写 `invoke.json`，运行中的 App 消费并弹窗）；
+/// deep link AppleEvent 在部分环境不送达，故不作为依赖。App 未运行时退化
+/// `open -a Temporule` 启动（启动后消费 invoke.json 弹仪表盘）；
+/// 两者都失败才报运行时错误（退出码 1）。`TEMPORULE_NO_LAUNCH=1` 时跳过启动
+/// （测试隔离，避免拉起真实 App）。
 fn open_dashboard() -> Result<()> {
-    let deep_ok = std::process::Command::new("open")
-        .arg("temporule://dashboard")
-        .status()
-        .map(|status| status.success())
-        .unwrap_or(false);
-    if deep_ok {
+    open_store()?.write_invoke("show_dashboard")?;
+
+    if std::env::var_os("TEMPORULE_NO_LAUNCH").is_some() {
         return Ok(());
     }
-    let fallback_ok = std::process::Command::new("open")
+    let launch_ok = std::process::Command::new("open")
         .args(["-a", "Temporule"])
         .status()
         .map(|status| status.success())
         .unwrap_or(false);
-    if fallback_ok {
+    if launch_ok {
         return Ok(());
     }
     Err(anyhow!(
-        "无法打开 Temporule：deep link 与 open -a Temporule 均失败"
+        "无法打开 Temporule：open -a Temporule 失败（invoke 请求已写入，App 下次启动时生效）"
     ))
 }
 

@@ -149,6 +149,9 @@ pub fn setup_watcher(app: &AppHandle) -> Result<(), String> {
         *slot = Some(watcher);
     }
     let handle = app.clone();
+    // 启动前已存在的 invoke 请求（CLI 在 App 未运行时调用 open）：
+    // 目录监听只报增量，启动前的存量请求在此直接消费
+    consume_invoke(app);
     std::thread::spawn(move || watch_loop(handle, rx));
     Ok(())
 }
@@ -157,10 +160,38 @@ pub fn setup_watcher(app: &AppHandle) -> Result<(), String> {
 fn watch_loop(app: AppHandle, rx: Receiver<notify::Result<notify::Event>>) {
     while rx.recv().is_ok() {
         while rx.recv_timeout(DEBOUNCE).is_ok() {}
+        consume_invoke(&app);
         if let Some(hash) = reminders_hash() {
             if hash_changed(hash) {
                 let _ = app.emit(STORE_CHANGED_EVENT, ());
             }
         }
+    }
+}
+
+/// 处理 CLI → GUI 唤起请求（`invoke.json`，consume-once）。
+pub fn consume_invoke(app: &AppHandle) {
+    let action = match store().map(|s| s.take_invoke()) {
+        Ok(Ok(Some(action))) => action,
+        Ok(Ok(None)) => return,
+        Ok(Err(err)) => {
+            eprintln!("[temporule] 读取 invoke 请求失败: {err}");
+            return;
+        }
+        Err(err) => {
+            eprintln!("[temporule] 打开 store 失败: {err}");
+            return;
+        }
+    };
+    let result = match action.as_str() {
+        "show_dashboard" => crate::show_dashboard(app),
+        "show_main" => crate::show_main_window(app),
+        other => {
+            eprintln!("[temporule] 未知 invoke 动作: {other}");
+            return;
+        }
+    };
+    if let Err(err) = result {
+        eprintln!("[temporule] 处理 invoke 动作失败: {err}");
     }
 }

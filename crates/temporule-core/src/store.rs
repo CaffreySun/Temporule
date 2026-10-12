@@ -24,6 +24,7 @@ pub const SNOOZES_FILE: &str = "snoozes.json";
 pub const STATE_FILE: &str = "state.json";
 /// 应用设置文件名（`{ version, settings }`）。
 pub const SETTINGS_FILE: &str = "settings.json";
+pub const INVOKE_FILE: &str = "invoke.json";
 
 /// 存储文件格式版本。
 const FORMAT_VERSION: u32 = 1;
@@ -386,6 +387,43 @@ impl Store {
             source,
         })?;
         self.atomic_write(&path, &bytes)
+    }
+
+    /// 写入一次性 GUI 唤起请求（CLI → GUI 文件落点 IPC，consume-once）。
+    ///
+    /// `action` ∈ `show_dashboard` / `show_main`；App 侧经 [`Self::take_invoke`] 取走并删除。
+    pub fn write_invoke(&self, action: &str) -> Result<(), StoreError> {
+        let payload = serde_json::json!({ "action": action });
+        let path = self.path(INVOKE_FILE);
+        self.atomic_write(&path, payload.to_string().as_bytes())
+    }
+
+    /// 取走唤起请求：读取 `invoke.json` 并删除（consume-once）。
+    ///
+    /// 无请求返回 `None`；文件损坏按容错处理（删除坏文件、返回 `None`、记 log）。
+    pub fn take_invoke(&self) -> Result<Option<String>, StoreError> {
+        let path = self.path(INVOKE_FILE);
+        let bytes = match fs::read(&path) {
+            Ok(bytes) => bytes,
+            Err(err) if err.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+            Err(source) => {
+                return Err(StoreError::Io {
+                    path: path.clone(),
+                    source,
+                })
+            }
+        };
+        let _ = fs::remove_file(&path);
+        match serde_json::from_slice::<serde_json::Value>(&bytes) {
+            Ok(value) => Ok(value
+                .get("action")
+                .and_then(|a| a.as_str())
+                .map(|a| a.to_string())),
+            Err(_) => {
+                eprintln!("[temporule-store] invoke.json 损坏，已忽略");
+                Ok(None)
+            }
+        }
     }
 
     /// 拼接数据目录下的文件路径。

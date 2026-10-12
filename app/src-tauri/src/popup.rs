@@ -229,7 +229,11 @@ fn build_window(app: &AppHandle, spec: PopupSpec, generation: u64) {
     let mut builder = WebviewWindowBuilder::new(
         app,
         &label,
-        WebviewUrl::App(format!("index.html#/popup/{popup_id}").into()),
+        // URL 必须每窗唯一（?view=popup 让前端按参数分发；pid + hash 的 popup_id 区分窗口），
+        // 同 URL 双窗口会被 WKWebView 页面缓存串掉窗口元数据与页面内容
+        WebviewUrl::App(
+            format!("index.html?view=popup&pid={}#{popup_id}", spec.reminder_id).into(),
+        ),
     )
     .title(&spec.title)
     .inner_size(POPUP_SIZE.0, POPUP_SIZE.1)

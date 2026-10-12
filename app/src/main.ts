@@ -12,13 +12,13 @@ if (root === null) {
 }
 
 // 视图分发优先取显式 URL 参数（同 URL 双窗口会被 WKWebView 页面缓存串掉
-// getCurrentWindow 的 label 元数据，故窗口创建时带 ?view=），label 仅作回退。
+// getCurrentWindow 的 label 元数据，故窗口创建时带 ?view=），label 仅作回退；
+// 弹窗 URL 形如 index.html?view=popup&pid={reminder_id}#{popup_id}，每窗唯一。
 const viewParam = new URLSearchParams(window.location.search).get("view");
-const label: string = viewParam ?? window.__TAURI__.window.getCurrentWindow().label;
-
-if (label.startsWith("popup-")) {
+if (viewParam === "popup") {
   root.append(popupView());
 } else {
+  const label: string = viewParam ?? window.__TAURI__.window.getCurrentWindow().label;
   switch (label) {
     case "main":
       root.append(mainView());

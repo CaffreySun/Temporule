@@ -240,7 +240,11 @@ function renderHistoryTab(pane: HTMLElement): void {
         const titleCell = document.createElement("td");
         titleCell.textContent = entry.title;
         const statusCell = document.createElement("td");
-        statusCell.textContent = historyStatusLabel(entry.status);
+        // 状态徽标：语义色（fired/dismissed=辅助、done=成功、snoozed=稍后、missed=错误）
+        const badge = document.createElement("span");
+        badge.className = `status-badge ${entry.status}`;
+        badge.textContent = historyStatusLabel(entry.status);
+        statusCell.append(badge);
         const scheduledCell = document.createElement("td");
         scheduledCell.textContent = formatDateTime(entry.scheduled_at);
         row.append(atCell, titleCell, statusCell, scheduledCell);

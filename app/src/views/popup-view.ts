@@ -1,7 +1,8 @@
 /**
  * 弹窗视图（label 前缀 `popup-`）：标题、备注、「完成 / 稍后」按钮、AutoDismiss 倒计时展示。
  *
- * URL hash 携带 popup_id（`#/popup/{popup_id}`）；同 reminder 二次触发时 Rust 复用窗口
+ * URL 形如 `index.html?view=popup&pid={reminder_id}#{popup_id}`（每窗唯一，避开
+ * WKWebView 页面缓存串扰）：hash 直接携带 popup_id；同 reminder 二次触发时 Rust 复用窗口
  * 并发 `popup-replace` 事件注入新内容（倒计时展示随之重置）。AutoDismiss 的实际关窗与
  * history(dismissed) 由 Rust 计时统一裁决，前端倒计时只做展示；提醒已删（popup_detail
  * 返回空）时视图自行关窗。
@@ -16,8 +17,8 @@ export function popupView(): HTMLElement {
   const root = document.createElement("section");
   root.className = "view popup";
 
-  // URL hash 携带 popup_id（#/popup/{popup_id}），无 hash 视为非法直接关窗
-  let popupId: string | null = /^#\/popup\/(.+)$/.exec(window.location.hash)?.[1] ?? null;
+  // URL hash 直接携带 popup_id（#{popup_id}），无 hash 视为非法直接关窗
+  let popupId: string | null = window.location.hash.slice(1) || null;
   /** AutoDismiss 倒计时展示句柄（纯展示，不负责关窗）。 */
   let countdown: number | null = null;
 

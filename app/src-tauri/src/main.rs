@@ -111,11 +111,32 @@ fn dashboard_position(app: &AppHandle) -> Option<(f64, f64)> {
     Some((x, y))
 }
 
+/// 按「主窗口是否可见」切换激活策略。
+///
+/// macOS 原生语义：主窗口 = 常规应用（Dock/Cmd-Tab 可见）→ Regular；
+/// 仅有仪表盘/弹窗时 = 菜单栏面板（无 Dock 图标）→ Accessory。
+pub(crate) fn update_activation_policy(app: &AppHandle) {
+    #[cfg(target_os = "macos")]
+    {
+        let main_visible = app
+            .get_webview_window(MAIN_LABEL)
+            .and_then(|w| w.is_visible().ok())
+            .unwrap_or(false);
+        let policy = if main_visible {
+            tauri::ActivationPolicy::Regular
+        } else {
+            tauri::ActivationPolicy::Accessory
+        };
+        let _ = app.set_activation_policy(policy);
+    }
+}
+
 /// 显示并聚焦仪表盘窗口；不存在时惰性创建。
 ///
-/// 常驻 Accessory（无 Dock 图标）；`set_focus` 内部已带 `activateIgnoringOtherApps: YES`
-/// （tao set_focus 实现），非活跃 App 的窗口同样能置前激活。
+/// 仪表盘是菜单栏面板：常驻 Accessory（无 Dock 图标）；若主窗口开着则维持 Regular。
+/// `set_focus` 内部已带 `activateIgnoringOtherApps: YES`（tao 实现），窗口照常置前。
 fn show_dashboard(app: &AppHandle) -> tauri::Result<WebviewWindow> {
+    update_activation_policy(app);
     if let Some(window) = app.get_webview_window(DASHBOARD_LABEL) {
         window.show()?;
         window.set_focus()?;
@@ -157,7 +178,11 @@ fn show_dashboard(app: &AppHandle) -> tauri::Result<WebviewWindow> {
 }
 
 /// 显示并聚焦主窗口；不存在时惰性创建（启动默认隐藏，仅经托盘 / invoke 唤起）。
+///
+/// 主窗口 = 常规应用：显示前切 Regular（Dock/Cmd-Tab 出现）；关闭后回 Accessory。
 pub(crate) fn show_main_window(app: &AppHandle) -> tauri::Result<WebviewWindow> {
+    #[cfg(target_os = "macos")]
+    let _ = app.set_activation_policy(tauri::ActivationPolicy::Regular);
     if let Some(window) = app.get_webview_window(MAIN_LABEL) {
         window.show()?;
         window.set_focus()?;
@@ -175,6 +200,15 @@ pub(crate) fn show_main_window(app: &AppHandle) -> tauri::Result<WebviewWindow> 
     .transparent(true)
     .hidden_title(true)
     .build()?;
+    let handle = app.clone();
+    window.on_window_event(move |event| {
+        if matches!(
+            event,
+            tauri::WindowEvent::Destroyed | tauri::WindowEvent::CloseRequested { .. }
+        ) {
+            update_activation_policy(&handle);
+        }
+    });
     window.show()?;
     window.set_focus()?;
     Ok(window)

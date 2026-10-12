@@ -25,6 +25,7 @@ fn reminder(repeat: Repeat, schedule: Schedule) -> Reminder {
             alert: PopupAlert::AutoDismiss { seconds: 30 },
         },
         snooze_minutes: 10,
+        snooze_enabled: false,
         catch_up: false,
         enabled: true,
         created_at: dt(2026, 6, 1, 8, 0),

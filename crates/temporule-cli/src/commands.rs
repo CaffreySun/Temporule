@@ -288,6 +288,7 @@ fn add(args: AddArgs) -> Result<()> {
         schedule: build_schedule(&common)?,
         delivery: build_delivery(&common)?,
         snooze_minutes: common.snooze.unwrap_or(10),
+        snooze_enabled: common.snooze.is_some() && !common.no_snooze,
         catch_up: common.catch_up,
         enabled: true,
         created_at: now,
@@ -326,6 +327,11 @@ fn edit(args: EditArgs) -> Result<()> {
     changed |= apply_delivery(&common, &mut reminder)?;
     if let Some(minutes) = common.snooze {
         reminder.snooze_minutes = minutes;
+        reminder.snooze_enabled = true;
+        changed = true;
+    }
+    if common.no_snooze {
+        reminder.snooze_enabled = false;
         changed = true;
     }
     if common.catch_up {

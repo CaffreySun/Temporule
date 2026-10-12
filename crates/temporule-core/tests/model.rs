@@ -19,6 +19,7 @@ fn reminder() -> Reminder {
             alert: PopupAlert::AutoDismiss { seconds: 30 },
         },
         snooze_minutes: 10,
+        snooze_enabled: false,
         catch_up: false,
         enabled: true,
         created_at: Local.with_ymd_and_hms(2026, 6, 1, 9, 0, 0).unwrap(),
@@ -168,6 +169,33 @@ fn serde_wire_format_uses_weekday_names_and_rfc3339() {
     // 往返一致
     let back: Reminder = serde_json::from_value(json).unwrap();
     assert_eq!(back, r);
+}
+
+#[test]
+fn snooze_enabled_defaults_to_false_when_field_missing() {
+    // 旧数据（无 snooze_enabled 字段）反序列化 → 默认关闭
+    let mut r = reminder();
+    r.snooze_enabled = true;
+    let mut json = serde_json::to_value(&r).unwrap();
+    json.as_object_mut().unwrap().remove("snooze_enabled");
+    let back: Reminder = serde_json::from_value(json).unwrap();
+    assert!(!back.snooze_enabled);
+    assert_eq!(back.snooze_minutes, 10);
+}
+
+#[test]
+fn snooze_enabled_serde_roundtrip_preserves_field() {
+    for enabled in [false, true] {
+        let mut r = reminder();
+        r.snooze_enabled = enabled;
+        r.snooze_minutes = 5;
+        let json = serde_json::to_value(&r).unwrap();
+        assert_eq!(json["snooze_enabled"], enabled);
+        let back: Reminder = serde_json::from_value(json).unwrap();
+        assert_eq!(back.snooze_enabled, enabled);
+        assert_eq!(back.snooze_minutes, 5);
+        assert_eq!(back, r);
+    }
 }
 
 #[test]

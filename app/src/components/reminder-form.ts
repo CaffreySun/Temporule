@@ -376,7 +376,13 @@ export function reminderForm(options: ReminderFormOptions): HTMLElement {
   deliverySection.className = "form-section";
   deliverySection.append(groupTitle("触达"), deliveryBox, notificationBox, popupBox, deliveryError);
 
-  // —— 稍后分钟数 / 错过补发
+  // —— 稍后提醒（可选，默认关）/ 错过补发
+  const snoozeLabel = document.createElement("label");
+  snoozeLabel.className = "checkbox";
+  const snoozeToggle = document.createElement("input");
+  snoozeToggle.type = "checkbox";
+  snoozeToggle.checked = initial?.snooze_enabled ?? false;
+  snoozeLabel.append(snoozeToggle, document.createTextNode("稍后提醒（默认关）"));
   const snoozeInput = document.createElement("input");
   snoozeInput.type = "number";
   snoozeInput.className = "input w-interval";
@@ -384,11 +390,14 @@ export function reminderForm(options: ReminderFormOptions): HTMLElement {
   snoozeInput.step = "1";
   snoozeInput.value = String(initial?.snooze_minutes ?? 10);
   const snoozeControls = document.createElement("div");
-  snoozeControls.className = "pair-controls";
+  snoozeControls.className = "pair-controls sub-group";
   const snoozeUnit = document.createElement("span");
   snoozeUnit.className = "dim-suffix";
   snoozeUnit.textContent = "分钟";
   snoozeControls.append(snoozeInput, snoozeUnit);
+  const snoozeRow = document.createElement("div");
+  snoozeRow.className = "form-row";
+  snoozeRow.append(snoozeLabel, snoozeControls);
   const catchUpLabel = document.createElement("label");
   catchUpLabel.className = "checkbox";
   const catchUpInput = document.createElement("input");
@@ -419,6 +428,8 @@ export function reminderForm(options: ReminderFormOptions): HTMLElement {
     popupBox.hidden = !deliveryPopup.checked;
     autoRow.hidden = !popupAuto.checked;
     autoSecondsInput.disabled = !popupAuto.checked;
+    snoozeControls.hidden = !snoozeToggle.checked;
+    snoozeInput.disabled = !snoozeToggle.checked;
   };
   for (const control of [
     repeatDaily,
@@ -429,6 +440,7 @@ export function reminderForm(options: ReminderFormOptions): HTMLElement {
     deliveryPopup,
     popupAuto,
     popupForce,
+    snoozeToggle,
   ]) {
     control.addEventListener("change", syncVisibility);
   }
@@ -527,6 +539,7 @@ export function reminderForm(options: ReminderFormOptions): HTMLElement {
       popup_mode: popupForce.checked ? "force" : "auto",
       auto_dismiss_seconds: Math.max(1, Math.trunc(autoSecondsInput.valueAsNumber || 30)),
       snooze_minutes: Math.max(1, Math.trunc(snoozeInput.valueAsNumber || 10)),
+      snooze_enabled: snoozeToggle.checked,
       catch_up: catchUpInput.checked,
     };
   };
@@ -571,7 +584,7 @@ export function reminderForm(options: ReminderFormOptions): HTMLElement {
   appendField(body, "标题", titleInput, titleError);
   appendField(body, "备注", noteInput, errorLine());
   body.append(repeatSection, scheduleSection, deliverySection);
-  appendField(body, "稍后提醒", snoozeControls, errorLine());
+  appendField(body, "稍后提醒", snoozeRow, errorLine());
   const catchUpRow = document.createElement("div");
   catchUpRow.className = "form-row";
   catchUpRow.append(catchUpLabel);

@@ -89,8 +89,11 @@ pub struct Reminder {
     pub schedule: Schedule,
     /// 触达方式。
     pub delivery: Delivery,
-    /// 「稍后」默认分钟数（默认 10）。
+    /// 「稍后」默认分钟数（默认 10；仅 `snooze_enabled` 启用时生效）。
     pub snooze_minutes: u32,
+    /// 「稍后提醒」是否启用（默认关闭；serde 反序列化缺省为 false，兼容旧数据）。
+    #[serde(default)]
+    pub snooze_enabled: bool,
     /// 错过是否补发（默认不补发）。
     pub catch_up: bool,
     /// 是否启用。

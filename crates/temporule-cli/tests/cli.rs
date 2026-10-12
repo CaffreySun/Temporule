@@ -458,6 +458,101 @@ fn invalid_interval_is_rejected_with_chinese_error() {
     );
 }
 
+/// `add` 不带 --snooze → snooze_enabled=false；带 --snooze → true；--no-snooze → false。
+#[test]
+fn snooze_enabled_flag_lands_in_json() {
+    let data = TempDir::new().unwrap();
+    temporule(&data)
+        .args([
+            "add",
+            "--title",
+            "默认关",
+            "--daily",
+            "--at",
+            "9:00",
+            "--popup",
+        ])
+        .assert()
+        .success();
+    let items = list_json(&data);
+    assert_eq!(items[0]["snooze_enabled"], false);
+
+    let data2 = TempDir::new().unwrap();
+    temporule(&data2)
+        .args([
+            "add",
+            "--title",
+            "带稍后",
+            "--daily",
+            "--at",
+            "9:00",
+            "--popup",
+            "--snooze",
+            "15",
+        ])
+        .assert()
+        .success();
+    let items = list_json(&data2);
+    assert_eq!(items[0]["snooze_enabled"], true);
+    assert_eq!(items[0]["snooze_minutes"], 15);
+}
+
+/// `--snooze` 与 `--no-snooze` 互斥 → clap 用法错误退出码 2。
+#[test]
+fn snooze_flags_conflict_exits_2() {
+    let data = TempDir::new().unwrap();
+    temporule(&data)
+        .args([
+            "add",
+            "--title",
+            "冲突",
+            "--daily",
+            "--at",
+            "9:00",
+            "--popup",
+            "--snooze",
+            "10",
+            "--no-snooze",
+        ])
+        .assert()
+        .code(2);
+    assert!(
+        !data.path().join("reminders.json").exists(),
+        "用法错误不应写数据文件"
+    );
+}
+
+/// `edit` 可切换 snooze_enabled：--snooze 启用并改分钟，--no-snooze 显式关闭。
+#[test]
+fn edit_toggles_snooze_enabled() {
+    let data = TempDir::new().unwrap();
+    temporule(&data)
+        .args([
+            "add", "--title", "切换", "--daily", "--at", "9:00", "--popup",
+        ])
+        .assert()
+        .success();
+    let id = list_json(&data)[0]["id"].as_str().unwrap().to_string();
+
+    temporule(&data)
+        .args(["edit", &id, "--snooze", "20"])
+        .assert()
+        .success();
+    let items = list_json(&data);
+    assert_eq!(items[0]["snooze_enabled"], true);
+    assert_eq!(items[0]["snooze_minutes"], 20);
+
+    temporule(&data)
+        .args(["edit", &id, "--no-snooze"])
+        .assert()
+        .success();
+    let items = list_json(&data);
+    assert_eq!(items[0]["snooze_enabled"], false);
+
+    // --no-snooze 不改动分钟数
+    assert_eq!(items[0]["snooze_minutes"], 20);
+}
+
 /// flags 全量模式其余变体正确落库：weekly / at / notification+sound / note / snooze / catch-up。
 #[test]
 fn full_flag_variants_land_in_json() {

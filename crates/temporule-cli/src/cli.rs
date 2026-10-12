@@ -144,9 +144,12 @@ pub struct CommonArgs {
     /// 弹窗自动消失秒数（与 --force 互斥）
     #[arg(long, value_name = "SECONDS", conflicts_with = "force")]
     pub auto_dismiss: Option<u32>,
-    /// 「稍后」默认分钟数（默认 10）
-    #[arg(long)]
+    /// 「稍后」默认分钟数（给出即启用稍后提醒；与 --no-snooze 互斥）
+    #[arg(long, conflicts_with = "no_snooze")]
     pub snooze: Option<u32>,
+    /// 显式关闭稍后提醒（与 --snooze 互斥）
+    #[arg(long, conflicts_with = "snooze")]
+    pub no_snooze: bool,
     /// 错过补发
     #[arg(long)]
     pub catch_up: bool,

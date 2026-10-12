@@ -53,6 +53,8 @@ export interface ReminderPayload {
   auto_dismiss_seconds: number;
   /** 「稍后」分钟数。 */
   snooze_minutes: number;
+  /** 「稍后提醒」是否启用（默认关）。 */
+  snooze_enabled: boolean;
   /** 错过是否补发。 */
   catch_up: boolean;
 }
@@ -112,6 +114,8 @@ export interface PopupDetailView {
   note: string | null;
   /** 弹窗行为。 */
   alert: PopupAlertView;
+  /** 「稍后提醒」是否启用（false 时弹窗不渲染「稍后」按钮）。 */
+  snooze_enabled: boolean;
 }
 
 const invoke = window.__TAURI__.core.invoke;

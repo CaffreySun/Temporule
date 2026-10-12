@@ -74,6 +74,8 @@ pub struct ReminderPayload {
     pub auto_dismiss_seconds: u32,
     /// 「稍后」默认分钟数。
     pub snooze_minutes: u32,
+    /// 「稍后提醒」是否启用（默认关闭）。
+    pub snooze_enabled: bool,
     /// 错过是否补发。
     pub catch_up: bool,
 }
@@ -144,6 +146,7 @@ impl ReminderPayload {
             schedule,
             delivery,
             snooze_minutes: self.snooze_minutes,
+            snooze_enabled: self.snooze_enabled,
             catch_up: self.catch_up,
             enabled: existing.is_none_or(|r| r.enabled),
             created_at: existing.map_or(now, |r| r.created_at),
@@ -332,7 +335,7 @@ pub fn popup_action(app: AppHandle, popup_id: String, action: String) -> Result<
         let store = store_state::store()?;
         let data = store.load().map_err(err_string)?;
         let now = Local::now();
-        // 契约：已删静默（下面统一消费并关窗）
+        // 契约：已删静默（下面统一消费并关窗）；稍后提醒未启用时 snooze 动作同样静默（无副作用）
         if let Some(reminder) = data.reminders.iter().find(|r| r.id == reminder_id) {
             if action == "done" {
                 store
@@ -345,7 +348,7 @@ pub fn popup_action(app: AppHandle, popup_id: String, action: String) -> Result<
                         at: now,
                     })
                     .map_err(err_string)?;
-            } else {
+            } else if reminder.snooze_enabled {
                 store
                     .add_snooze(&SnoozeRecord {
                         id: uuid::Uuid::new_v4(),
@@ -393,6 +396,8 @@ pub struct PopupDetailView {
     pub note: Option<String>,
     /// 弹窗行为。
     pub alert: PopupAlertView,
+    /// 「稍后提醒」是否启用（false 时弹窗不渲染「稍后」按钮）。
+    pub snooze_enabled: bool,
 }
 
 /// 弹窗内容（thin wrapper）：提醒不存在 / ID 非法返回空，由弹窗视图自行关窗。
@@ -419,6 +424,7 @@ pub fn popup_detail(popup_id: String) -> Result<Option<PopupDetailView>, String>
         title: reminder.title.clone(),
         note: reminder.note.clone(),
         alert,
+        snooze_enabled: reminder.snooze_enabled,
     }))
 }
 
@@ -628,6 +634,7 @@ fn detail_of(reminder: &Reminder, rev: u64) -> ReminderDetail {
             popup_mode,
             auto_dismiss_seconds,
             snooze_minutes: reminder.snooze_minutes,
+            snooze_enabled: reminder.snooze_enabled,
             catch_up: reminder.catch_up,
         },
     }

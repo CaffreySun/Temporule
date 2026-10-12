@@ -91,6 +91,8 @@ export function popupView(): HTMLElement {
     title.textContent = detail.title;
     note.textContent = detail.note ?? "";
     note.hidden = detail.note === null;
+    // 「稍后提醒」可选（默认关）：未启用时操作行只有「完成」右置
+    snoozeButton.hidden = !detail.snooze_enabled;
     if (countdown !== null) {
       window.clearInterval(countdown);
       countdown = null;

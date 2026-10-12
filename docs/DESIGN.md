@@ -79,6 +79,39 @@
 
 其余 token（surface/surface-raised/border/text/text-dim/accent/success/warning/danger）沿用 v1。
 
+## v3 —— 窗口 chrome 统一 + 主窗口侧栏骨架
+
+### 窗口 chrome（根治割裂）
+
+- 主窗口用 **Overlay 透明标题栏**（`titleBarStyle: Overlay` + 窗口 `transparent`）：红绿灯浮在深色内容上方，标题栏与内容区同为 `--surface`，零割裂
+- 内容区顶部留 28px 红绿灯避让（padding-top），该条 `-webkit-app-region: drag` 可拖动
+- 仪表盘/弹窗维持无标题栏自绘，不作改动
+
+### 主窗口骨架：左侧边栏
+
+```
+┌──────────┬──────────────────────────────┐
+│ 拾律      │  提醒                    +新增 │
+│           │ ──────────────────────────── │
+│ ● 提醒    │  [Row] [Row] [Row] ...        │
+│ ○ 历史    │                               │
+│ ○ 设置    │                               │
+│           │                               │
+└──────────┴──────────────────────────────┘
+```
+
+- 侧栏宽 180、独立背景（比内容区深一档：`#1a1a1d` 新 token `--surface-side`），与内容区 1px `--border` 分隔
+- 导航项：28px 高行、圆角 6、激活态 = `--surface-hover` 底 + `--accent` 文字/图标；图标 16px（提醒=铃铛、历史=时钟、设置=齿轮，单色 SVG currentColor）
+- 内容区标题 15/600 置顶 + 右上 ghost「+ 新增」（仅提醒页）
+- 顶部 Tab 条删除，Tab 切换改侧栏导航（pane 切换机制不变）
+- 空态（无提醒/无历史）：内容区中央放 13px text-dim 提示语（如「还没有提醒，点右上角新增」），不再是大片空白
+
+### 质感细节（补齐）
+
+- 焦点环：交互控件 focus-visible 时 2px `--accent` 外环（offset 2px）
+- 滚动条：WebKit 细滚动条（8px、thumb `--border` 圆角、hover 提亮）——仪表盘列表与主窗口历史滚动区
+- 选中行：行列表键盘/点选态 = `--surface-hover`（已有）+ 左侧 2px accent（已有）
+
 ## 落地约束（不变）
 
 - token 化、动效 100–200ms ease-out 仅 hover/switch/弹层

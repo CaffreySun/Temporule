@@ -28,8 +28,6 @@ jobs:
   gui-build:
     name: Tauri build
     runs-on: macos-14
-    # GUI 骨架（第 3 切片）落地前自动跳过；落地后此条件恒真
-    if: ${{ hashFiles('app/package.json') != '' }}
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable

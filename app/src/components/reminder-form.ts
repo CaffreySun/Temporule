@@ -1,5 +1,7 @@
 /**
  * 新增/编辑提醒表单（仪表盘与主窗口共用组件函数）。
+ * 垂直单列布局：每字段 = 标签(11/600 text-dim 置顶) + 控件 + 行内错误位；
+ * 三组单选（重复/排程/触达）用分段控件，次级配置统一 .sub-group 缩进。
  * 保存前本地校验模型不变量（错误红字内联）；保存携带表单打开时的 rev 快照，
  * 过期保存（SaveConflict）弹「数据已被外部修改，请重试」并重载；提交期间禁用保存按钮防重入。
  */
@@ -36,24 +38,26 @@ const WEEKDAYS: ReadonlyArray<[string, string]> = [
   ["sun", "日"],
 ];
 
-/** 追加一行「标签 + 控件 + 行内错误位」。 */
-function appendField(
-  container: HTMLElement,
-  label: string,
-  control: HTMLElement,
-  error: HTMLElement,
-): void {
-  const row = document.createElement("div");
-  row.className = "form-row";
-  const caption = document.createElement("label");
-  caption.className = "form-label";
-  caption.textContent = label;
-  row.append(caption, control, error);
-  container.append(row);
+/** 行内错误段（空文案 = 隐藏）。 */
+function errorLine(): HTMLParagraphElement {
+  const line = document.createElement("p");
+  line.className = "field-error";
+  return line;
 }
 
-/** 追加一个 radio 选项，返回其 input（checked 由调用方读写）。 */
-function appendRadio(
+/** 表单小节标题（11/600 text-dim + 字距；「重复」「排程」「触达」分组分隔）。 */
+function groupTitle(text: string): HTMLParagraphElement {
+  const title = document.createElement("p");
+  title.className = "group-title";
+  title.textContent = text;
+  return title;
+}
+
+/**
+ * 追加一个分段控件项（单选），返回其 input（checked 由调用方读写）。
+ * 容器应为 .segmented；项视觉与 chip 选中态一致（surface-raised 底 + text 字）。
+ */
+function appendSegment(
   container: HTMLElement,
   name: string,
   text: string,
@@ -72,19 +76,20 @@ function appendRadio(
   return input;
 }
 
-/** 行内错误段（空文案 = 隐藏）。 */
-function errorLine(): HTMLParagraphElement {
-  const line = document.createElement("p");
-  line.className = "field-error";
-  return line;
-}
-
-/** 表单小节标题（11/600 text-dim + 字距；「重复」「排程」「触达」分组分隔）。 */
-function groupTitle(text: string): HTMLParagraphElement {
-  const title = document.createElement("p");
-  title.className = "group-title";
-  title.textContent = text;
-  return title;
+/** 追加一行「标签 + 控件 + 行内错误位」的垂直字段行。 */
+function appendField(
+  container: HTMLElement,
+  label: string,
+  control: HTMLElement,
+  error: HTMLElement,
+): void {
+  const row = document.createElement("div");
+  row.className = "form-row";
+  const caption = document.createElement("label");
+  caption.className = "form-label";
+  caption.textContent = label;
+  row.append(caption, control, error);
+  container.append(row);
 }
 
 /** 解析 HH:MM（兼容 H:MM 与 HH:MM:SS）→ 归一化 HH:MM；非法返回 null。 */
@@ -136,6 +141,23 @@ export function reminderForm(options: ReminderFormOptions): HTMLElement {
       });
   }
 
+  // —— 头部：标题 + ✕ 关闭（取消同义）
+  const head = document.createElement("div");
+  head.className = "form-head";
+  const headTitle = document.createElement("p");
+  headTitle.className = "form-title";
+  headTitle.textContent = initial === undefined ? "新增提醒" : "编辑提醒";
+  const closeButton = document.createElement("button");
+  closeButton.type = "button";
+  closeButton.className = "icon-button form-close";
+  closeButton.textContent = "✕";
+  closeButton.setAttribute("aria-label", "关闭");
+  head.append(headTitle, closeButton);
+
+  // —— 主体（可滚动字段列）
+  const body = document.createElement("div");
+  body.className = "form-body";
+
   // —— 标题 / 备注
   const titleInput = document.createElement("input");
   titleInput.type = "text";
@@ -149,13 +171,13 @@ export function reminderForm(options: ReminderFormOptions): HTMLElement {
   noteInput.placeholder = "备注（可空）";
   noteInput.value = initial?.note ?? "";
 
-  // —— 重复：每天 / 每周 + 星期多选 chip
+  // —— 重复：每天 / 每周 分段控件 + 星期多选 chip
   const repeatBox = document.createElement("div");
-  repeatBox.className = "inline-group";
-  const repeatDaily = appendRadio(repeatBox, "repeat", "每天", initial?.repeat !== "weekly");
-  const repeatWeekly = appendRadio(repeatBox, "repeat", "每周", initial?.repeat === "weekly");
+  repeatBox.className = "segmented";
+  const repeatDaily = appendSegment(repeatBox, "repeat", "每天", initial?.repeat !== "weekly");
+  const repeatWeekly = appendSegment(repeatBox, "repeat", "每周", initial?.repeat === "weekly");
   const weekdayBox = document.createElement("div");
-  weekdayBox.className = "chip-row";
+  weekdayBox.className = "chip-row sub-group";
   const weekdayInputs: HTMLInputElement[] = [];
   for (const [value, label] of WEEKDAYS) {
     const chip = document.createElement("label");
@@ -175,20 +197,32 @@ export function reminderForm(options: ReminderFormOptions): HTMLElement {
   repeatSection.className = "form-section";
   repeatSection.append(groupTitle("重复"), repeatBox, weekdayBox, repeatError);
 
-  // —— 排程：每隔 N 分/时 + 时间窗；或 固定时刻列表
+  // —— 排程：每隔 / 固定时刻 分段控件
   const modeBox = document.createElement("div");
-  modeBox.className = "inline-group";
-  const modeEvery = appendRadio(modeBox, "schedule-mode", "每隔", initial?.schedule_mode !== "at");
-  const modeAt = appendRadio(modeBox, "schedule-mode", "固定时刻", initial?.schedule_mode === "at");
+  modeBox.className = "segmented";
+  const modeEvery = appendSegment(
+    modeBox,
+    "schedule-mode",
+    "每隔",
+    initial?.schedule_mode !== "at",
+  );
+  const modeAt = appendSegment(
+    modeBox,
+    "schedule-mode",
+    "固定时刻",
+    initial?.schedule_mode === "at",
+  );
+
+  // —— 排程·每隔：成对字段行（间隔+单位 / 时间窗起–止）
   const everyBox = document.createElement("div");
   everyBox.className = "sub-group";
   const intervalInput = document.createElement("input");
   intervalInput.type = "number";
-  intervalInput.className = "input narrow";
+  intervalInput.className = "input w-interval";
   intervalInput.min = "1";
   intervalInput.step = "1";
   const unitSelect = document.createElement("select");
-  unitSelect.className = "input narrow";
+  unitSelect.className = "input w-unit";
   const unitMinute = document.createElement("option");
   unitMinute.value = "minute";
   unitMinute.textContent = "分钟";
@@ -207,23 +241,49 @@ export function reminderForm(options: ReminderFormOptions): HTMLElement {
     intervalInput.value = "2";
     unitSelect.value = "hour";
   }
+  const intervalRow = document.createElement("div");
+  intervalRow.className = "pair-row";
+  const intervalLabel = document.createElement("span");
+  intervalLabel.className = "mini-label";
+  intervalLabel.textContent = "间隔";
+  const intervalControls = document.createElement("div");
+  intervalControls.className = "pair-controls";
+  intervalControls.append(intervalInput, unitSelect);
+  intervalRow.append(intervalLabel, intervalControls);
+
   const windowStartInput = document.createElement("input");
   windowStartInput.type = "time";
-  windowStartInput.className = "input narrow";
+  windowStartInput.className = "input w-time";
   windowStartInput.value = initial?.window_start || "09:00";
   const windowEndInput = document.createElement("input");
   windowEndInput.type = "time";
-  windowEndInput.className = "input narrow";
+  windowEndInput.className = "input w-time";
   windowEndInput.value = initial?.window_end || "18:00";
-  everyBox.append(
-    document.createTextNode("每隔 "),
-    intervalInput,
-    unitSelect,
-    document.createTextNode("，时间窗 "),
-    windowStartInput,
-    document.createTextNode(" – "),
-    windowEndInput,
-  );
+  const windowRow = document.createElement("div");
+  windowRow.className = "pair-row";
+  const windowLabel = document.createElement("span");
+  windowLabel.className = "mini-label";
+  windowLabel.textContent = "时间窗";
+  const windowControls = document.createElement("div");
+  windowControls.className = "pair-controls";
+  const startLabel = document.createElement("label");
+  startLabel.className = "mini-sublabel";
+  const startText = document.createElement("span");
+  startText.textContent = "开始";
+  startLabel.append(startText, windowStartInput);
+  const dash = document.createElement("span");
+  dash.className = "pair-dash";
+  dash.textContent = "–";
+  const endLabel = document.createElement("label");
+  endLabel.className = "mini-sublabel";
+  const endText = document.createElement("span");
+  endText.textContent = "结束";
+  endLabel.append(endText, windowEndInput);
+  windowControls.append(startLabel, dash, endLabel);
+  windowRow.append(windowLabel, windowControls);
+  everyBox.append(intervalRow, windowRow);
+
+  // —— 排程·固定时刻
   const atBox = document.createElement("div");
   atBox.className = "sub-group";
   const timesInput = document.createElement("input");
@@ -231,22 +291,39 @@ export function reminderForm(options: ReminderFormOptions): HTMLElement {
   timesInput.className = "input";
   timesInput.placeholder = "9:00,14:30";
   timesInput.value = initial?.times.join(",") || "9:00";
-  atBox.append(document.createTextNode("固定时刻："), timesInput);
+  const atRow = document.createElement("div");
+  atRow.className = "pair-row";
+  const atLabel = document.createElement("span");
+  atLabel.className = "mini-label";
+  atLabel.textContent = "时刻";
+  const atControls = document.createElement("div");
+  atControls.className = "pair-controls";
+  atControls.append(timesInput);
+  atRow.append(atLabel, atControls);
+  atBox.append(atRow);
+
   const scheduleError = errorLine();
   const scheduleSection = document.createElement("div");
   scheduleSection.className = "form-section";
   scheduleSection.append(groupTitle("排程"), modeBox, everyBox, atBox, scheduleError);
 
-  // —— 触达：系统通知（+声音）/ 弹窗（自动消失秒数 或 强制处理）
+  // —— 触达：系统通知 / 弹窗 分段控件
   const deliveryBox = document.createElement("div");
-  deliveryBox.className = "inline-group";
-  const deliveryNotification = appendRadio(
+  deliveryBox.className = "segmented";
+  const deliveryNotification = appendSegment(
     deliveryBox,
     "delivery",
     "系统通知",
     initial?.delivery !== "popup",
   );
-  const deliveryPopup = appendRadio(deliveryBox, "delivery", "弹窗", initial?.delivery === "popup");
+  const deliveryPopup = appendSegment(
+    deliveryBox,
+    "delivery",
+    "弹窗",
+    initial?.delivery === "popup",
+  );
+
+  // —— 触达·系统通知：声音
   const notificationBox = document.createElement("div");
   notificationBox.className = "sub-group";
   const soundLabel = document.createElement("label");
@@ -256,27 +333,44 @@ export function reminderForm(options: ReminderFormOptions): HTMLElement {
   soundInput.checked = initial?.sound ?? true;
   soundLabel.append(soundInput, document.createTextNode("声音"));
   notificationBox.append(soundLabel);
+
+  // —— 触达·弹窗：自动消失（秒数）/ 强制处理
   const popupBox = document.createElement("div");
   popupBox.className = "sub-group";
-  const popupAuto = appendRadio(
-    popupBox,
+  const popupModes = document.createElement("div");
+  popupModes.className = "chip-row";
+  const popupAuto = appendSegment(
+    popupModes,
     "popup-mode",
     "自动消失",
     initial?.popup_mode !== "force",
   );
-  const autoSecondsInput = document.createElement("input");
-  autoSecondsInput.type = "number";
-  autoSecondsInput.className = "input narrow";
-  autoSecondsInput.min = "1";
-  autoSecondsInput.step = "1";
-  autoSecondsInput.value = String(initial?.auto_dismiss_seconds ?? 30);
-  popupBox.append(autoSecondsInput, document.createTextNode(" 秒 "));
-  const popupForce = appendRadio(
-    popupBox,
+  const popupForce = appendSegment(
+    popupModes,
     "popup-mode",
     "强制处理",
     initial?.popup_mode === "force",
   );
+  const autoRow = document.createElement("div");
+  autoRow.className = "pair-row";
+  const autoLabel = document.createElement("span");
+  autoLabel.className = "mini-label";
+  autoLabel.textContent = "自动消失";
+  const autoControls = document.createElement("div");
+  autoControls.className = "pair-controls";
+  const autoSecondsInput = document.createElement("input");
+  autoSecondsInput.type = "number";
+  autoSecondsInput.className = "input w-interval";
+  autoSecondsInput.min = "1";
+  autoSecondsInput.step = "1";
+  autoSecondsInput.value = String(initial?.auto_dismiss_seconds ?? 30);
+  const autoUnit = document.createElement("span");
+  autoUnit.className = "dim-suffix";
+  autoUnit.textContent = "秒";
+  autoControls.append(autoSecondsInput, autoUnit);
+  autoRow.append(autoLabel, autoControls);
+  popupBox.append(popupModes, autoRow);
+
   const deliveryError = errorLine();
   const deliverySection = document.createElement("div");
   deliverySection.className = "form-section";
@@ -285,10 +379,16 @@ export function reminderForm(options: ReminderFormOptions): HTMLElement {
   // —— 稍后分钟数 / 错过补发
   const snoozeInput = document.createElement("input");
   snoozeInput.type = "number";
-  snoozeInput.className = "input narrow";
+  snoozeInput.className = "input w-interval";
   snoozeInput.min = "1";
   snoozeInput.step = "1";
   snoozeInput.value = String(initial?.snooze_minutes ?? 10);
+  const snoozeControls = document.createElement("div");
+  snoozeControls.className = "pair-controls";
+  const snoozeUnit = document.createElement("span");
+  snoozeUnit.className = "dim-suffix";
+  snoozeUnit.textContent = "分钟";
+  snoozeControls.append(snoozeInput, snoozeUnit);
   const catchUpLabel = document.createElement("label");
   catchUpLabel.className = "checkbox";
   const catchUpInput = document.createElement("input");
@@ -296,7 +396,7 @@ export function reminderForm(options: ReminderFormOptions): HTMLElement {
   catchUpInput.checked = initial?.catch_up ?? false;
   catchUpLabel.append(catchUpInput, document.createTextNode("错过补发（下次启动补触发错过时刻）"));
 
-  // —— 提交错误（后端非冲突错误）与按钮
+  // —— 提交错误（后端非冲突错误）与底部操作栏（sticky：左取消 ghost / 右保存 primary）
   const submitError = errorLine();
   const actions = document.createElement("div");
   actions.className = "form-actions";
@@ -306,9 +406,9 @@ export function reminderForm(options: ReminderFormOptions): HTMLElement {
   saveButton.textContent = "保存";
   const cancelButton = document.createElement("button");
   cancelButton.type = "button";
-  cancelButton.className = "button";
+  cancelButton.className = "button ghost";
   cancelButton.textContent = "取消";
-  actions.append(saveButton, cancelButton);
+  actions.append(cancelButton, saveButton);
 
   // —— 子区块显隐同步
   const syncVisibility = (): void => {
@@ -317,6 +417,7 @@ export function reminderForm(options: ReminderFormOptions): HTMLElement {
     atBox.hidden = !modeAt.checked;
     notificationBox.hidden = !deliveryNotification.checked;
     popupBox.hidden = !deliveryPopup.checked;
+    autoRow.hidden = !popupAuto.checked;
     autoSecondsInput.disabled = !popupAuto.checked;
   };
   for (const control of [
@@ -465,13 +566,17 @@ export function reminderForm(options: ReminderFormOptions): HTMLElement {
       });
   });
   cancelButton.addEventListener("click", () => options.onCancel());
+  closeButton.addEventListener("click", () => options.onCancel());
 
-  appendField(root, "标题", titleInput, titleError);
-  appendField(root, "备注", noteInput, errorLine());
-  root.append(repeatSection, scheduleSection, deliverySection);
-  const tail = document.createElement("div");
-  tail.className = "form-row";
-  tail.append(snoozeInput, document.createTextNode(" 分钟「稍后」  "), catchUpLabel);
-  root.append(tail, submitError, actions);
+  appendField(body, "标题", titleInput, titleError);
+  appendField(body, "备注", noteInput, errorLine());
+  body.append(repeatSection, scheduleSection, deliverySection);
+  appendField(body, "稍后提醒", snoozeControls, errorLine());
+  const catchUpRow = document.createElement("div");
+  catchUpRow.className = "form-row";
+  catchUpRow.append(catchUpLabel);
+  body.append(catchUpRow, submitError);
+
+  root.append(head, body, actions);
   return root;
 }

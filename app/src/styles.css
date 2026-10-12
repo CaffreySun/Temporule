@@ -648,14 +648,44 @@ body.panel-rounded #app {
   transform: translateX(20px);
 }
 
-/* —— 表单：两列网格；长字段（整行输入/备注）跨整行，短字段两两同行 —— */
-
+/* —— 新增/编辑表单：垂直单列节奏 ——
+   每字段 = 行（label 11/600 text-dim 置顶 + 控件 + 错误行），行间 12；分组间 16。 */
 .reminder-form {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: var(--space-md);
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* 头部：标题 15/600 + ✕ 关闭（取消同义） */
+.form-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-md) var(--space-lg) var(--space-sm);
+}
+
+.form-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.form-close {
+  font-size: var(--font-body-size);
+  line-height: 1;
+}
+
+/* 主体字段列：行间 --space-md，分组间由 .form-section 顶部补 4px = --space-lg */
+.form-body {
+  flex: 1;
+  min-height: 0;
   overflow: auto;
-  padding: var(--space-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  padding: 0 var(--space-lg) var(--space-lg);
 }
 
 .form-row {
@@ -664,24 +694,32 @@ body.panel-rounded #app {
   gap: var(--space-sm);
 }
 
-/* 长字段（标题/备注等整行控件）跨整行 */
-.form-row:has(> .input) {
-  grid-column: 1 / -1;
-}
-
 /* 表单小节（重复/排程/触达）：11/600 text-dim 小节标题分隔，非边框盒子 */
 .form-section {
-  grid-column: 1 / -1;
   display: flex;
   flex-direction: column;
-  gap: var(--space-sm);
-  padding-top: var(--space-sm);
+  gap: var(--space-md);
 }
 
+.form-section + .form-section {
+  margin-top: 4px;
+}
+
+/* 底部操作栏：sticky 底、1px 上边框、高 44；左取消 ghost / 右保存 primary */
 .form-actions {
-  grid-column: 1 / -1;
+  position: sticky;
+  bottom: 0;
   display: flex;
+  align-items: center;
   gap: var(--space-sm);
+  height: 44px;
+  padding: 0 var(--space-lg);
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.form-actions .button.primary {
+  margin-left: auto;
 }
 
 /* 字段标签：11/600 text-dim，置于控件上方 */
@@ -700,20 +738,87 @@ body.panel-rounded #app {
   color: var(--text-dim);
 }
 
-.inline-group {
+/* 次级配置统一缩进：左 2px accent 竖线 + padding-left 12，与主表单形成层级 */
+.sub-group {
   display: flex;
-  gap: var(--space-md);
-  align-items: center;
-  flex-wrap: wrap;
+  flex-direction: column;
+  gap: var(--space-sm);
+  margin: 0;
+  padding-left: var(--space-md);
+  border-left: 2px solid var(--accent);
 }
 
-/* 小节内控件组：无框无底色，左侧缩进挂在小节标题下 */
-.sub-group {
+/* 分段控件：容器圆角 6 + 1px border，内按钮均分；
+   选中 = surface-raised 底 + text 字（复用 .radio/.chip 选中态视觉），切换 150ms。 */
+.segmented {
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-ctl);
+}
+
+.segmented .radio {
+  flex: 1;
+  justify-content: center;
+  border-color: transparent;
+}
+
+.segmented .radio:has(input:checked) {
+  border-color: transparent;
+}
+
+/* 成对字段行：mini-label（11/600 text-dim）+ 控件左对齐 */
+.pair-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.mini-label {
+  flex: none;
+  width: 52px;
+  font-size: var(--font-aux-size);
+  font-weight: 600;
+  color: var(--text-dim);
+}
+
+.pair-controls {
   display: flex;
   align-items: center;
   gap: var(--space-sm);
   flex-wrap: wrap;
-  padding-left: var(--space-md);
+}
+
+.mini-sublabel {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-sm);
+  font-size: var(--font-aux-size);
+  font-weight: 400;
+  color: var(--text-dim);
+}
+
+.pair-dash {
+  color: var(--text-dim);
+}
+
+.dim-suffix {
+  font-size: var(--font-aux-size);
+  color: var(--text-dim);
+}
+
+/* 定宽输入：间隔 64 / 单位 72 / 时间 96（.input 的 width:100% 在后，需提高优先级） */
+.input.w-interval {
+  width: 64px;
+}
+
+.input.w-unit {
+  width: 72px;
+}
+
+.input.w-time {
+  width: 96px;
 }
 
 /* 输入框：1px border 底、圆角 6；focus 边框 accent */
@@ -728,10 +833,6 @@ body.panel-rounded #app {
   transition: border-color var(--dur) var(--ease);
 }
 
-.input.narrow {
-  width: auto;
-}
-
 .input:focus {
   outline: none;
   border-color: var(--accent);
@@ -741,6 +842,12 @@ body.panel-rounded #app {
   display: flex;
   gap: var(--space-sm);
   flex-wrap: wrap;
+}
+
+/* 星期 chips 等横向 chip 组作为 .sub-group 时保持横排 */
+.chip-row.sub-group {
+  flex-direction: row;
+  align-items: center;
 }
 
 /* —— 分段控件：单选组（.radio）与多选 chip 组共用同一视觉 ——

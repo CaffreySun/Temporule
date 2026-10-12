@@ -318,7 +318,7 @@ function renderSettingsNav(pane: HTMLElement): null {
             "开机自启",
             settings.launch_at_login,
             (value) => persist({ ...settings, launch_at_login: value }),
-            "请确保 App 在 /Applications（登录项按安装路径启动）",
+            "请确保 App 在 /Applications，登录项按安装路径启动",
           ),
           settingSwitch("仪表盘失焦隐藏", settings.dashboard_hide_on_blur, (value) =>
             persist({ ...settings, dashboard_hide_on_blur: value }),

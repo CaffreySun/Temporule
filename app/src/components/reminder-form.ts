@@ -168,7 +168,7 @@ export function reminderForm(options: ReminderFormOptions): HTMLElement {
   const noteInput = document.createElement("textarea");
   noteInput.className = "input";
   noteInput.rows = 2;
-  noteInput.placeholder = "备注（可空）";
+  noteInput.placeholder = "备注";
   noteInput.value = initial?.note ?? "";
 
   // —— 重复：每天 / 每周 分段控件 + 星期多选 chip
@@ -382,7 +382,7 @@ export function reminderForm(options: ReminderFormOptions): HTMLElement {
   const snoozeToggle = document.createElement("input");
   snoozeToggle.type = "checkbox";
   snoozeToggle.checked = initial?.snooze_enabled ?? false;
-  snoozeLabel.append(snoozeToggle, document.createTextNode("稍后提醒（默认关）"));
+  snoozeLabel.append(snoozeToggle, document.createTextNode("稍后提醒"));
   const snoozeInput = document.createElement("input");
   snoozeInput.type = "number";
   snoozeInput.className = "input w-interval";
@@ -403,7 +403,7 @@ export function reminderForm(options: ReminderFormOptions): HTMLElement {
   const catchUpInput = document.createElement("input");
   catchUpInput.type = "checkbox";
   catchUpInput.checked = initial?.catch_up ?? false;
-  catchUpLabel.append(catchUpInput, document.createTextNode("错过补发（下次启动补触发错过时刻）"));
+  catchUpLabel.append(catchUpInput, document.createTextNode("错过补发"));
 
   // —— 提交错误（后端非冲突错误）与底部操作栏（sticky：左取消 ghost / 右保存 primary）
   const submitError = errorLine();
@@ -512,7 +512,7 @@ export function reminderForm(options: ReminderFormOptions): HTMLElement {
     } else {
       const parsed = parseTimeList(timesInput.value);
       if (parsed === null) {
-        scheduleError.textContent = "固定时刻格式应为 HH:MM（如 9:00,14:30）";
+        scheduleError.textContent = "固定时刻格式应为 HH:MM，如 9:00,14:30";
       } else if (parsed.length === 0) {
         scheduleError.textContent = "固定时刻列表不能为空";
       } else {

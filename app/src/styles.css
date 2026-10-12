@@ -120,27 +120,31 @@ body.panel-rounded #app {
   user-select: none;
 }
 
-/* 无标题栏窗口标题区关闭红点（macOS 风）：默认红点，hover 显白 ×，靠右。 */
+/* 无标题栏窗口标题区关闭点（macOS 红绿灯风）：
+   默认 12px 暗红圆点（不抢眼），hover 变标准关闭红 + 显白 ✕。必须压掉
+   .button.small 的 min-height/padding，否则会被拉成大椭圆。 */
 .title-bar .window-close {
   margin-left: auto;
-  width: 14px;
-  height: 14px;
-  min-width: 14px;
-  padding: 0;
+  width: 12px !important;
+  height: 12px !important;
+  min-width: 12px !important;
+  min-height: 0 !important;
+  padding: 0 !important;
   border: none;
   border-radius: 50%;
-  background: var(--danger);
+  background: rgba(255, 69, 58, 0.45);
   color: transparent;
   font-size: 9px;
-  line-height: 14px;
+  line-height: 12px;
   text-align: center;
-  opacity: 0.9;
+  transition:
+    background var(--dur) var(--ease),
+    color var(--dur) var(--ease);
 }
 
 .title-bar .window-close:hover {
   background: var(--danger);
   color: var(--text-on-accent);
-  opacity: 1;
 }
 
 .view-header h1 {

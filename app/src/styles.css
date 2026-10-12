@@ -265,13 +265,13 @@ body {
 }
 
 /* 侧栏：180px 独立背景（比内容区深一档），与内容区 1px 分隔
-   padding-x = 0：导航选中/hover 背景从侧栏左缘一直延伸到右缘（撑满整宽） */
+   padding-x = 8px：选中/hover 背景铺满两侧边距之间的区域，四周留边距 */
 .sidebar {
   display: flex;
   flex-direction: column;
   flex: 0 0 180px;
   gap: var(--space-md);
-  padding: var(--space-md) 0;
+  padding: var(--space-md) var(--space-sm);
   background: var(--surface-side);
   border-right: 1px solid var(--border);
 }
@@ -362,8 +362,8 @@ body {
   outline-offset: 2px;
 }
 
-/* 导航行：32px 高、圆角 6；未选 text-dim 13/400；激活 = surface-hover 底 + accent 13/500
-   宽度撑满侧栏（父级 padding-x=0）+ 圆角只在右缘 → 选中背景从左缘延续到右缘 */
+/* 导航行：32px 高；未选 text-dim 13/400；激活 = surface-hover 底 + accent 13/500
+   宽度撑满侧栏留白区（父级 padding-x=8）+ 全圆角 → 选中背景铺满边距内区域 */
 .nav-item {
   display: flex;
   align-items: center;
@@ -372,7 +372,7 @@ body {
   height: 32px;
   padding: 0 var(--space-sm);
   border: none;
-  border-radius: 0 var(--radius-ctl) var(--radius-ctl) 0;
+  border-radius: var(--radius-ctl);
   background: transparent;
   color: var(--text-dim);
   font: inherit;
@@ -387,9 +387,10 @@ body {
   background: var(--surface-hover);
 }
 
+/* 激活态：参考 macOS 系统设置侧栏 —— accent 实底 + 白字白图标 */
 .nav-item.active {
-  color: var(--accent);
-  background: var(--surface-hover);
+  color: var(--text-on-accent);
+  background: var(--accent);
   font-weight: 500;
 }
 

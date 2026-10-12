@@ -280,15 +280,23 @@ body {
   flex: 0 0 28px;
 }
 
-/* 侧栏底部品牌区：整块可点 = 「关于拾律」入口，hover 提亮 */
+/* 侧栏底部品牌区容器：第一行 logo+拾律+版本；第二行右对齐「关于拾律…」ghost 链接 */
 .sidebar-footer {
   display: flex;
-  align-items: center;
+  flex-direction: column;
   gap: var(--space-sm);
   margin-top: auto;
   padding: var(--space-md);
-  border: none;
   border-top: 1px solid var(--border);
+}
+
+/* 品牌行（整块可点 = 「关于拾律」入口，hover 提亮） */
+.sidebar-footer-brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: 4px;
+  border: none;
   border-radius: var(--radius-ctl);
   background: transparent;
   font: inherit;
@@ -297,12 +305,13 @@ body {
   transition: background-color var(--dur) var(--ease);
 }
 
-.sidebar-footer:hover {
+.sidebar-footer-brand:hover {
   background: var(--surface-hover);
 }
 
-.sidebar-footer:focus-visible {
-  outline: 1px solid var(--accent);
+.sidebar-footer-brand:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 /* 32×32 应用 logo（圆角 8，raised 衬底） */
@@ -326,12 +335,34 @@ body {
   color: var(--text-dim);
 }
 
-/* 导航行：28px 高、圆角 6；激活态 = surface-hover 底 + accent 文字 */
+/* 独立「关于拾律…」ghost 链接：11px text-dim，hover accent */
+.sidebar-footer-about {
+  align-self: flex-end;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--text-dim);
+  font: inherit;
+  font-size: var(--font-aux-size);
+  cursor: pointer;
+  transition: color var(--dur) var(--ease);
+}
+
+.sidebar-footer-about:hover {
+  color: var(--accent);
+}
+
+.sidebar-footer-about:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* 导航行：32px 高、圆角 6；未选 text-dim 13/400；激活 = surface-hover 底 + accent 13/500 */
 .nav-item {
   display: flex;
   align-items: center;
-  gap: var(--space-sm);
-  height: 28px;
+  gap: 8px;
+  height: 32px;
   padding: 0 var(--space-sm);
   border: none;
   border-radius: var(--radius-ctl);
@@ -352,9 +383,15 @@ body {
 .nav-item.active {
   color: var(--accent);
   background: var(--surface-hover);
+  font-weight: 500;
 }
 
-/* 16px 单色 SVG 图标（currentColor） */
+.nav-item:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* 16px 线性图标（SVG stroke=currentColor，样式在 navIcon 上统一设置） */
 .nav-icon {
   width: 16px;
   height: 16px;
@@ -675,7 +712,63 @@ body {
   border-color: var(--accent);
 }
 
+.chip-row {
+  display: flex;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+}
+
+/* —— 分段控件：单选组（.radio）与多选 chip 组共用同一视觉 ——
+   未选 = 透明底 + --text-dim；选中 = --surface-raised 底 + --text 文字 + 1px --border-hover 边。 */
 .radio,
+.chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px var(--space-sm);
+  border: 1px solid transparent;
+  border-radius: var(--radius-ctl);
+  background: transparent;
+  color: var(--text-dim);
+  font: inherit;
+  line-height: 18px;
+  cursor: pointer;
+  user-select: none;
+  transition:
+    color var(--dur) var(--ease),
+    background-color var(--dur) var(--ease),
+    border-color var(--dur) var(--ease);
+}
+
+/* 原生控件仅视觉隐藏（保留键盘与读屏语义），选中态由 label 承担 */
+.radio input,
+.chip input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.radio:hover,
+.chip:hover {
+  color: var(--text);
+  border-color: var(--border-hover);
+}
+
+.radio:has(input:checked),
+.chip:has(input:checked) {
+  color: var(--text);
+  background: var(--surface-raised);
+  border-color: var(--border-hover);
+}
+
+.radio:has(input:focus-visible),
+.chip:has(input:focus-visible) {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
 .checkbox {
   display: inline-flex;
   align-items: center;
@@ -683,38 +776,9 @@ body {
   cursor: pointer;
 }
 
-.radio input,
+/* 独立布尔开关（声音 / 错过补发）保留原生勾选框，仅取主题 accent 色 */
 .checkbox input {
   accent-color: var(--accent);
-}
-
-.chip-row {
-  display: flex;
-  gap: var(--space-sm);
-  flex-wrap: wrap;
-}
-
-.chip {
-  padding: 4px var(--space-sm);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-ctl);
-  cursor: pointer;
-  user-select: none;
-  transition: border-color var(--dur) var(--ease);
-}
-
-.chip:hover {
-  border-color: var(--border-hover);
-}
-
-.chip input {
-  display: none;
-}
-
-.chip:has(input:checked) {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--text-on-accent);
 }
 
 .field-error {

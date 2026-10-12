@@ -342,39 +342,55 @@ function renderSettingsNav(pane: HTMLElement): null {
   return null;
 }
 
-/** 16px 单色 SVG 图标（currentColor）：铃铛 / 时钟 / 齿轮。 */
+/** 16px 线性 SVG 图标（feather 标准路径，stroke=currentColor）：铃铛 / 时钟 / 齿轮。 */
 function navIcon(kind: string): SVGSVGElement {
   const ns = "http://www.w3.org/2000/svg";
   const svg = document.createElementNS(ns, "svg");
   svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("fill", "none");
+  svg.setAttribute("stroke", "currentColor");
+  svg.setAttribute("stroke-width", "1.5");
+  svg.setAttribute("stroke-linecap", "round");
+  svg.setAttribute("stroke-linejoin", "round");
   svg.classList.add("nav-icon");
   svg.setAttribute("aria-hidden", "true");
-  const path = document.createElementNS(ns, "path");
-  path.setAttribute("fill", "currentColor");
+
+  /** path 的路径串。 */
+  const paths: string[] = [];
+  /** circle 的 [cx, cy, r]。 */
+  const circles: Array<[number, number, number]> = [];
   switch (kind) {
     case "reminders":
-      // 铃铛
-      path.setAttribute(
-        "d",
-        "M12 2a7 7 0 0 0-7 7v4.1L3.3 17a1 1 0 0 0 .87 1.5h15.66A1 1 0 0 0 20.7 17L19 13.1V9a7 7 0 0 0-7-7Zm0 20a3 3 0 0 0 2.83-2H9.17A3 3 0 0 0 12 22Z",
-      );
+      // 铃铛：feather bell（铃身 + 铃舌）
+      paths.push("M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9");
+      paths.push("M13.73 21a2 2 0 0 1-3.46 0");
       break;
     case "history":
-      // 时钟
-      path.setAttribute(
-        "d",
-        "M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm1 10.41V6a1 1 0 1 0-2 0v6.83a1 1 0 0 0 .3.7l3.5 3.5a1 1 0 0 0 1.4-1.4L13 11.41Z",
-      );
+      // 时钟：feather clock（表盘 + 指针）
+      circles.push([12, 12, 10]);
+      paths.push("M12 6v6l4 2");
       break;
     default:
-      // 齿轮
-      path.setAttribute(
-        "d",
-        "M10.33 2.59a2 2 0 0 1 3.34 0l.83 1.34c.2.32.56.51.94.48l1.58-.11a2 2 0 0 1 2.13 2.13l-.11 1.58c-.03.38.16.74.48.94l1.34.83a2 2 0 0 1 0 3.34l-1.34.83a1.08 1.08 0 0 0-.48.94l.11 1.58a2 2 0 0 1-2.13 2.13l-1.58-.11a1.08 1.08 0 0 0-.94.48l-.83 1.34a2 2 0 0 1-3.34 0l-.83-1.34a1.08 1.08 0 0 0-.94-.48l-1.58.11a2 2 0 0 1-2.13-2.13l.11-1.58a1.08 1.08 0 0 0-.48-.94l-1.34-.83a2 2 0 0 1 0-3.34l1.34-.83c.32-.2.51-.56.48-.94l-.11-1.58A2 2 0 0 1 6.98 3.8l1.58.11c.38.03.74-.16.94-.48l.83-1.34ZM12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Z",
+      // 齿轮：feather settings（轮缘 + 轴孔）
+      paths.push(
+        "M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z",
       );
+      circles.push([12, 12, 3]);
       break;
   }
-  svg.append(path);
+
+  for (const d of paths) {
+    const path = document.createElementNS(ns, "path");
+    path.setAttribute("d", d);
+    svg.append(path);
+  }
+  for (const [cx, cy, r] of circles) {
+    const circle = document.createElementNS(ns, "circle");
+    circle.setAttribute("cx", String(cx));
+    circle.setAttribute("cy", String(cy));
+    circle.setAttribute("r", String(r));
+    svg.append(circle);
+  }
   return svg;
 }
 
@@ -383,17 +399,25 @@ export function mainView(): HTMLElement {
   const root = document.createElement("section");
   root.className = "view main";
 
-  // 左侧边栏：顶部红绿灯占位 + 三导航行 + 底部品牌区（整块可点 = 关于面板）
+  // 左侧边栏：顶部红绿灯占位 + 三导航行 + 底部品牌区（logo 行 + 独立「关于拾律…」链接）
   const sidebar = document.createElement("aside");
   sidebar.className = "sidebar";
   const trafficPad = document.createElement("div");
   trafficPad.className = "sidebar-traffic-pad";
   const nav = document.createElement("nav");
   nav.className = "side-nav";
-  const footer = document.createElement("button");
-  footer.type = "button";
+
+  const openAbout = (): void => {
+    void appInfo().then((info) => aboutDialog(info.name, info.version));
+  };
+
+  // 第一行：logo + 拾律 + 版本（可点开关于）
+  const footer = document.createElement("div");
   footer.className = "sidebar-footer";
-  footer.setAttribute("aria-label", "关于拾律");
+  const footerBrand = document.createElement("button");
+  footerBrand.type = "button";
+  footerBrand.className = "sidebar-footer-brand";
+  footerBrand.setAttribute("aria-label", "关于拾律");
   const footerLogo = document.createElement("img");
   footerLogo.className = "sidebar-footer-logo";
   footerLogo.src = logoUrl;
@@ -410,10 +434,17 @@ export function mainView(): HTMLElement {
     .catch(() => {
       // 版本号取不到不阻塞侧栏渲染
     });
-  footer.addEventListener("click", () => {
-    void appInfo().then((info) => aboutDialog(info.name, info.version));
-  });
-  footer.append(footerLogo, footerText, footerVersion);
+  footerBrand.addEventListener("click", openAbout);
+  footerBrand.append(footerLogo, footerText, footerVersion);
+
+  // 第二行：右对齐独立「关于拾律…」ghost 链接
+  const footerAbout = document.createElement("button");
+  footerAbout.type = "button";
+  footerAbout.className = "sidebar-footer-about";
+  footerAbout.textContent = "关于拾律…";
+  footerAbout.addEventListener("click", openAbout);
+
+  footer.append(footerBrand, footerAbout);
   sidebar.append(trafficPad, nav, footer);
 
   // 内容区：顶部 28px 红绿灯避让条（drag 可拖动）+ 页标题行 + pane 容器

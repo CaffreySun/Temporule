@@ -122,7 +122,9 @@ fn show_dashboard(app: &AppHandle) -> tauri::Result<WebviewWindow> {
     .always_on_top(true)
     .skip_taskbar(true)
     .closable(true)
-    .minimizable(false);
+    .minimizable(false)
+    // 悬浮面板无系统标题栏：标题区自绘（前端 header 可拖动 + 关闭按钮）
+    .decorations(false);
     if let Some((x, y)) = dashboard_position(app) {
         builder = builder.position(x, y);
     }

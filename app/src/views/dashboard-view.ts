@@ -99,13 +99,28 @@ export function dashboardView(): HTMLElement {
   root.className = "view dashboard";
 
   const header = document.createElement("header");
-  header.className = "view-header";
+  header.className = "view-header title-bar";
+  header.setAttribute("data-tauri-drag-region", "deep");
   const title = document.createElement("h1");
   title.textContent = "拾律";
   const status = document.createElement("span");
   status.className = "status-dot running";
   status.title = "调度器运行中";
-  header.append(title, status);
+  // 无边框窗口自绘关闭按钮（等价原生红灯：关窗并按剩余可见窗口回切激活策略）
+  const closeButton = document.createElement("button");
+  closeButton.type = "button";
+  closeButton.className = "button small window-close";
+  closeButton.textContent = "✕";
+  closeButton.title = "关闭仪表盘";
+  closeButton.addEventListener("click", () => {
+    void window.__TAURI__.window
+      .getCurrentWindow()
+      .close()
+      .catch((err: unknown) => {
+        void alertDialog(formatError(err));
+      });
+  });
+  header.append(title, status, closeButton);
 
   const content = document.createElement("div");
   content.className = "dashboard-content";

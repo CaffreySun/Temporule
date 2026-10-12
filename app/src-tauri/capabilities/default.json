@@ -3,5 +3,9 @@
   "identifier": "default",
   "description": "默认能力：核心事件订阅（store-changed）与基础窗口操作",
   "windows": ["*"],
-  "permissions": ["core:default"]
+  "permissions": [
+    "core:default",
+    "core:window:allow-start-dragging",
+    "core:window:allow-close"
+  ]
 }

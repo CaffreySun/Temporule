@@ -17,6 +17,12 @@
   box-sizing: border-box;
 }
 
+/* hidden 属性必须生效：类选择器里的 display 会覆盖 UA 的 [hidden] { display: none }，
+   这里用 !important 压住（Tab 切换、表单条件区块都靠 hidden 收起）。 */
+[hidden] {
+  display: none !important;
+}
+
 body {
   margin: 0;
   background: var(--bg);
@@ -41,6 +47,18 @@ body {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+/* —— 无边框窗口自绘标题栏（dashboard / popup） ——
+   拖拽由 Tauri 注入脚本按 data-tauri-drag-region="deep" 处理：子树内任意点按下均可
+   拖动窗口，BUTTON 等可交互子元素自动免拖（按钮点击不受影响）。 */
+.title-bar {
+  user-select: none;
+}
+
+/* 标题栏右上关闭按钮（无 flex: 1 的标题时靠右）。 */
+.title-bar .window-close {
+  margin-left: auto;
 }
 
 .view-header h1 {
@@ -447,8 +465,17 @@ body {
   overflow: hidden;
 }
 
+/* 弹窗自绘标题栏：标题（提醒名）+ 关闭按钮，整条可拖动。 */
+.popup-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .popup-title {
   margin: 0;
+  flex: 1;
+  min-width: 0;
   font-size: 15px;
   white-space: nowrap;
   overflow: hidden;

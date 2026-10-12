@@ -23,6 +23,16 @@ export function popupView(): HTMLElement {
 
   const title = document.createElement("h2");
   title.className = "popup-title";
+  // 无边框弹窗自绘标题栏：标题整条可拖动，右侧关闭按钮（关闭同样汇聚 Destroyed 裁决）
+  const titleBar = document.createElement("div");
+  titleBar.className = "popup-header title-bar";
+  titleBar.setAttribute("data-tauri-drag-region", "deep");
+  const closeButton = document.createElement("button");
+  closeButton.type = "button";
+  closeButton.className = "button small window-close";
+  closeButton.textContent = "✕";
+  closeButton.title = "关闭弹窗";
+  titleBar.append(title, closeButton);
   const note = document.createElement("p");
   note.className = "popup-note muted";
   const countdownLabel = document.createElement("span");
@@ -38,7 +48,7 @@ export function popupView(): HTMLElement {
   const actions = document.createElement("div");
   actions.className = "popup-actions";
   actions.append(doneButton, snoozeButton, countdownLabel);
-  root.append(title, note, actions);
+  root.append(titleBar, note, actions);
 
   /** 停止倒计时展示并关窗（Rust 端 popup_action / AutoDismiss 也会关窗，此处兜底收尾）。 */
   const close = (): void => {
@@ -68,6 +78,7 @@ export function popupView(): HTMLElement {
   };
   doneButton.addEventListener("click", () => act("done"));
   snoozeButton.addEventListener("click", () => act("snooze"));
+  closeButton.addEventListener("click", () => close());
 
   /** 渲染弹窗内容；AutoDismiss 显示秒数倒计时，RequireAction 不显示。 */
   const render = (detail: PopupDetailView): void => {

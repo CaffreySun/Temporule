@@ -5,7 +5,7 @@
 
 use chrono::{DateTime, Local, NaiveTime};
 use serde::{Deserialize, Serialize};
-use tauri::AppHandle;
+use tauri::{AppHandle, WebviewWindow};
 use temporule_core::engine;
 use temporule_core::model::{
     Delivery, HistoryEntry, HistoryStatus, PopupAlert, Reminder, Repeat, Schedule, SnoozeRecord,
@@ -203,7 +203,11 @@ pub fn get(id: String) -> Result<ReminderDetail, String> {
 /// `base_rev` 为表单打开时的 rev 快照：给出时用作保存基线（会话期间外部已写入 →
 /// [`StoreError::SaveConflict`]），缺省按当前 rev 保存（无快照保护）。
 #[tauri::command(rename_all = "snake_case")]
-pub fn add(payload: ReminderPayload, base_rev: Option<u64>) -> Result<(), String> {
+pub fn add(
+    window: WebviewWindow,
+    payload: ReminderPayload,
+    base_rev: Option<u64>,
+) -> Result<(), String> {
     let reminder = payload.into_reminder(None)?;
     let store = store_state::store()?;
     let mut data = store.load().map_err(err_string)?;
@@ -211,7 +215,7 @@ pub fn add(payload: ReminderPayload, base_rev: Option<u64>) -> Result<(), String
     store
         .save(base_rev.unwrap_or(data.rev), &data.reminders)
         .map_err(err_string)?;
-    store_state::note_reminders_written();
+    store_state::reminders_written(&window);
     Ok(())
 }
 
@@ -220,7 +224,12 @@ pub fn add(payload: ReminderPayload, base_rev: Option<u64>) -> Result<(), String
 /// `base_rev` 必须携带表单打开（`get`）时的 rev 快照：外部写入后保存即冲突，
 /// 防止过期快照覆盖（规格 Major#5），前端按 [`SAVE_CONFLICT_MSG`] 提示并强制重载。
 #[tauri::command(rename_all = "snake_case")]
-pub fn update(id: String, payload: ReminderPayload, base_rev: u64) -> Result<(), String> {
+pub fn update(
+    window: WebviewWindow,
+    id: String,
+    payload: ReminderPayload,
+    base_rev: u64,
+) -> Result<(), String> {
     let id = parse_uuid(&id)?;
     let store = store_state::store()?;
     let mut data = store.load().map_err(err_string)?;
@@ -232,13 +241,13 @@ pub fn update(id: String, payload: ReminderPayload, base_rev: u64) -> Result<(),
     let reminder = payload.into_reminder(Some(&data.reminders[pos]))?;
     data.reminders[pos] = reminder;
     store.save(base_rev, &data.reminders).map_err(err_string)?;
-    store_state::note_reminders_written();
+    store_state::reminders_written(&window);
     Ok(())
 }
 
 /// 删除提醒（不级联清理 snooze，由调度器清扫兜底）。
 #[tauri::command(rename_all = "snake_case")]
-pub fn remove(id: String) -> Result<(), String> {
+pub fn remove(window: WebviewWindow, id: String) -> Result<(), String> {
     let id = parse_uuid(&id)?;
     let store = store_state::store()?;
     let mut data = store.load().map_err(err_string)?;
@@ -248,13 +257,13 @@ pub fn remove(id: String) -> Result<(), String> {
         return Err(format!("提醒不存在：{id}"));
     }
     store.save(data.rev, &data.reminders).map_err(err_string)?;
-    store_state::note_reminders_written();
+    store_state::reminders_written(&window);
     Ok(())
 }
 
 /// 启用/禁用提醒（bump `updated_at`，重启用后错过扫描不回溯禁用期）。
 #[tauri::command(rename_all = "snake_case")]
-pub fn toggle(id: String, enabled: bool) -> Result<(), String> {
+pub fn toggle(window: WebviewWindow, id: String, enabled: bool) -> Result<(), String> {
     let id = parse_uuid(&id)?;
     let store = store_state::store()?;
     let mut data = store.load().map_err(err_string)?;
@@ -266,7 +275,7 @@ pub fn toggle(id: String, enabled: bool) -> Result<(), String> {
     reminder.enabled = enabled;
     reminder.updated_at = Local::now();
     store.save(data.rev, &data.reminders).map_err(err_string)?;
-    store_state::note_reminders_written();
+    store_state::reminders_written(&window);
     Ok(())
 }
 

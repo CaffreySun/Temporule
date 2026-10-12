@@ -2,7 +2,8 @@
 //!
 //! 契约要点（`.task_spec/temporule-v1.md` GUI 节）：
 //! - 窗口 label `popup-{reminder_id}`，~360×140，右下纵向堆叠，alwaysOnTop / skipTaskbar /
-//!   closable / 不可最小化；同 reminder 二次触发复用窗口注入新内容并重置 AutoDismiss 计时；
+//!   closable / 不可最小化 / 无系统标题栏（标题区前端自绘）/ 不抢焦点（focusable(false)）；
+//!   同 reminder 二次触发复用窗口注入新内容并重置 AutoDismiss 计时；
 //! - 全局同时存活上限 [`MAX_ALIVE`]，超出 FIFO 排队，窗口关闭时递补；
 //! - AutoDismiss 到时由 Rust 关窗；窗口 Destroyed 时未被 done/snooze 消费过才记
 //!   history(dismissed)（done/snooze 经 [`consume`] 先标记再关窗）。
@@ -200,7 +201,7 @@ pub fn mark_shutting_down() {
     SHUTTING_DOWN.store(true, Ordering::Relaxed);
 }
 
-/// 复用窗口注入新内容：发 [`POPUP_REPLACE_EVENT`]（换内容 + 重置倒计时）、换标题、聚焦、重置计时。
+/// 复用窗口注入新内容：发 [`POPUP_REPLACE_EVENT`]（换内容 + 重置倒计时）、换标题、重置计时（不抢焦点）。
 fn replace_window(app: &AppHandle, label: &str, spec: &PopupSpec, generation: u64) {
     eprintln!(
         "[temporule-sched] 弹窗替换（同 reminder 不堆叠）：{}",
@@ -212,7 +213,6 @@ fn replace_window(app: &AppHandle, label: &str, spec: &PopupSpec, generation: u6
             popup_id: popup_id(spec),
         };
         let _ = window.emit_to(label, POPUP_REPLACE_EVENT, payload);
-        let _ = window.set_focus();
     } else {
         // 窗口尚在创建：建窗流程会在页面加载完成后补发当前内容
         eprintln!("[temporule-sched] 弹窗窗口未就绪，内容待页面加载后注入：{label}");
@@ -237,6 +237,10 @@ fn build_window(app: &AppHandle, spec: PopupSpec, generation: u64) {
     .skip_taskbar(true)
     .closable(true)
     .minimizable(false)
+    // 无系统标题栏：标题区自绘（前端标题行可拖动 + 关闭按钮）
+    .decorations(false)
+    // 不抢焦点：弹窗不成 key window（按钮仍可点击），用户正在输入的上下文不被打断
+    .focusable(false)
     // 页面加载完成后补发当前 popup_id（同 tick 内二次触发可能早于前端监听注册）
     .on_page_load({
         let app = app.clone();
@@ -277,8 +281,8 @@ fn build_window(app: &AppHandle, spec: PopupSpec, generation: u64) {
     if let PopupAlert::AutoDismiss { seconds } = spec.alert {
         schedule_auto_dismiss(app, &label, generation, seconds);
     }
+    // 只显示不聚焦（focusable(false) 下 show 不会夺 key window）
     let _ = window.show();
-    let _ = window.set_focus();
 }
 
 /// 窗口销毁（任何关窗路径都汇聚到这里）：未被 done/snooze 消费过 → 记 dismissed；随后重排 + 递补。

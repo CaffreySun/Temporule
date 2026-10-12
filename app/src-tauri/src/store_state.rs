@@ -5,7 +5,8 @@
 //! （macOS `~/Library/Application Support/com.temporule`）。
 //!
 //! 外部变更监听：notify 目录监听 → 200ms 防抖 → 比对 `reminders.json` 内容哈希，
-//! 变化才广播 [`STORE_CHANGED_EVENT`]；自写触发的监听由写入后同步哈希过滤掉。
+//! 变化才广播 [`STORE_CHANGED_EVENT`]；自写触发的监听由写入后同步哈希过滤掉，
+//! 改由 [`reminders_written`] 直接向调用窗口以外的窗口广播（避免写入方重复重载）。
 
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
@@ -15,7 +16,7 @@ use std::sync::mpsc::Receiver;
 use std::sync::{LazyLock, Mutex, MutexGuard};
 use std::time::Duration;
 
-use tauri::{AppHandle, Emitter};
+use tauri::{AppHandle, Emitter, Manager, WebviewWindow};
 use temporule_core::store::{Store, REMINDERS_FILE};
 
 // notify 的 `watch` 是 trait 方法，必须显式引入 trait
@@ -79,6 +80,19 @@ pub fn init_settings_cache() -> Result<(), String> {
 /// 写入提醒数据后同步哈希，让自写触发的目录监听被过滤掉。
 pub fn note_reminders_written() {
     set_last_hash(reminders_hash());
+}
+
+/// 提醒数据写入后的统一收尾：登记自写哈希（目录监听不重复广播），并把
+/// [`STORE_CHANGED_EVENT`] 广播给调用窗口以外的全部窗口——调用窗口由自身收尾流程
+/// 重建列表（api.ts `onStoreChanged` 的「外部修改提醒数据」契约）。
+pub fn reminders_written(window: &WebviewWindow) {
+    note_reminders_written();
+    let app = window.app_handle();
+    for (label, other) in app.webview_windows() {
+        if label != window.label() {
+            let _ = other.emit(STORE_CHANGED_EVENT, ());
+        }
+    }
 }
 
 /// 计算 `reminders.json` 当前内容哈希；文件缺失返回 `None`。

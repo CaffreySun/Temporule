@@ -79,8 +79,34 @@ fn dashboard_position(app: &AppHandle) -> Option<(f64, f64)> {
     ))
 }
 
+/// 按「是否有可见前端窗口」切换激活策略。
+///
+/// 菜单栏常驻（Accessory）下非活跃 App 的窗口不会被置前/显示；
+/// 显示窗口前需切 Regular，全部隐藏后回 Accessory（无 Dock 图标）。
+pub(crate) fn update_activation_policy(app: &AppHandle) {
+    #[cfg(target_os = "macos")]
+    {
+        let any_visible = [DASHBOARD_LABEL, MAIN_LABEL, "popup-"]
+            .iter()
+            .any(|prefix| {
+                app.webview_windows()
+                    .values()
+                    .any(|w| w.label().starts_with(prefix) && w.is_visible().unwrap_or(false))
+            });
+        let policy = if any_visible {
+            tauri::ActivationPolicy::Regular
+        } else {
+            tauri::ActivationPolicy::Accessory
+        };
+        let _ = app.set_activation_policy(policy);
+    }
+}
+
 /// 显示并聚焦仪表盘窗口；不存在时惰性创建（创建时定位屏幕右下）。
 fn show_dashboard(app: &AppHandle) -> tauri::Result<WebviewWindow> {
+    // 显示前先切 Regular（此时窗口尚未可见，按可见性计算会误判为无窗口）
+    #[cfg(target_os = "macos")]
+    let _ = app.set_activation_policy(tauri::ActivationPolicy::Regular);
     if let Some(window) = app.get_webview_window(DASHBOARD_LABEL) {
         window.show()?;
         window.set_focus()?;
@@ -104,12 +130,18 @@ fn show_dashboard(app: &AppHandle) -> tauri::Result<WebviewWindow> {
     // 失焦自动隐藏（设置页「仪表盘失焦隐藏」开关控制，默认开）
     let handle = app.clone();
     window.on_window_event(move |event| {
-        if let tauri::WindowEvent::Focused(false) = event {
-            if store_state::dashboard_hide_on_blur() {
-                if let Some(window) = handle.get_webview_window(DASHBOARD_LABEL) {
-                    let _ = window.hide();
+        match event {
+            tauri::WindowEvent::Focused(false) => {
+                if store_state::dashboard_hide_on_blur() {
+                    if let Some(window) = handle.get_webview_window(DASHBOARD_LABEL) {
+                        let _ = window.hide();
+                        update_activation_policy(&handle);
+                    }
                 }
             }
+            // 用户点 X 关闭仪表盘：按剩余可见窗口回切
+            tauri::WindowEvent::Destroyed => update_activation_policy(&handle),
+            _ => {}
         }
     });
     window.show()?;
@@ -119,6 +151,9 @@ fn show_dashboard(app: &AppHandle) -> tauri::Result<WebviewWindow> {
 
 /// 显示并聚焦主窗口；不存在时惰性创建（启动默认隐藏，仅经托盘 / deep link 唤起）。
 pub(crate) fn show_main_window(app: &AppHandle) -> tauri::Result<WebviewWindow> {
+    // 显示前先切 Regular（同 show_dashboard）
+    #[cfg(target_os = "macos")]
+    let _ = app.set_activation_policy(tauri::ActivationPolicy::Regular);
     if let Some(window) = app.get_webview_window(MAIN_LABEL) {
         window.show()?;
         window.set_focus()?;
@@ -132,6 +167,15 @@ pub(crate) fn show_main_window(app: &AppHandle) -> tauri::Result<WebviewWindow> 
     .title("拾律")
     .inner_size(MAIN_SIZE.0, MAIN_SIZE.1)
     .build()?;
+    let handle = app.clone();
+    window.on_window_event(move |event| {
+        if matches!(
+            event,
+            tauri::WindowEvent::Destroyed | tauri::WindowEvent::CloseRequested { .. }
+        ) {
+            update_activation_policy(&handle);
+        }
+    });
     window.show()?;
     window.set_focus()?;
     Ok(window)

@@ -1,6 +1,7 @@
 /**
  * 拾律深色主题（唯一 CSS 文件；UI 文案中文，样式名 kebab-case）。
  * 全部颜色/间距/圆角/字号/动效 token 化，token 定义集中于 :root，规范见 docs/DESIGN.md。
+ * v2：布局语言为紧凑行列表（Raycast 风）——Row / 时间线 / 分组标题；v1 token 沿用。
  */
 
 :root {
@@ -9,6 +10,8 @@
   /* 语义色板 */
   --surface: #1f1f22;
   --surface-raised: #2a2a2e;
+  --surface-hover: rgba(255, 255, 255, 0.04);
+  --toolbar: rgba(255, 255, 255, 0.02);
   --border: rgba(255, 255, 255, 0.08);
   --border-hover: rgba(255, 255, 255, 0.16);
   --text: #e8e8ea;
@@ -22,7 +25,6 @@
   /* 间距（4pt 基数） */
   --space-sm: 8px;
   --space-md: 12px;
-  --space-card: 8px;
   --space-lg: 16px;
 
   /* 圆角 */
@@ -30,8 +32,8 @@
   --radius-card: 10px;
   --radius-ctl: 6px;
 
-  /* 字号（角色） */
-  --font-title-size: 15px;
+  /* 字号（v2 阶梯：窗口标题 13/600；行标题 13/500；正文 13/400；摘要 11/400） */
+  --font-title-size: 13px;
   --font-body-size: 13px;
   --font-aux-size: 11px;
 
@@ -75,14 +77,29 @@ body {
   height: 100vh;
 }
 
+/* 仪表盘：标题区 / 行列表 / 底部 toolbar 三段式，分段贴边无全局留白 */
+.view.dashboard {
+  padding: 0;
+  gap: 0;
+}
+
+/* 主窗口：Tab 栏贴顶，内容区滚动 */
+.view.main {
+  padding: 0;
+  gap: 0;
+}
+
 .view-header {
   display: flex;
   align-items: center;
   gap: var(--space-sm);
+  min-height: 44px;
+  padding: 0 var(--space-lg);
+  border-bottom: 1px solid var(--border);
 }
 
-/* —— 无边框窗口自绘标题栏（dashboard / popup） ——
-   标题 15/600；关闭按钮为红点，hover 显 ×。
+/* —— 无边框窗口自绘标题区（dashboard / popup） ——
+   标题 13/600 + 状态点 + ✕（关闭红点 hover 显 ×）。
    拖拽由 Tauri 注入脚本按 data-tauri-drag-region="deep" 处理：子树内任意点按下均可
    拖动窗口，BUTTON 等可交互子元素自动免拖（按钮点击不受影响）。 */
 .title-bar {
@@ -118,19 +135,21 @@ body {
   font-weight: 600;
 }
 
-.view-footer {
-  margin-top: auto;
-}
-
 .status-dot {
   width: var(--space-sm);
   height: var(--space-sm);
   border-radius: 50%;
   background: var(--text-dim);
+  flex: none;
 }
 
 .status-dot.running {
   background: var(--success);
+}
+
+/* 弹窗提醒点：触发中的提醒用注意色 */
+.status-dot.attention {
+  background: var(--warning);
 }
 
 .hint {
@@ -142,6 +161,15 @@ body {
 
 .muted {
   color: var(--text-dim);
+}
+
+/* 列表 / 时间线 / 表单区内的空态与错误提示补内边距 */
+.dashboard-content > .hint,
+.dashboard-content > .field-error,
+.tab-pane > .hint,
+.tab-pane > .field-error {
+  margin: 0;
+  padding: var(--space-md) var(--space-lg);
 }
 
 /* —— 按钮：高 28、圆角 6；主/危险实心，hover 提亮 8%、active 压暗 8% —— */
@@ -188,6 +216,16 @@ body {
   filter: brightness(var(--hover-lift));
 }
 
+/* ghost：透明底，hover surface-raised（toolbar / 弹窗次按钮用） */
+.button.ghost {
+  background: transparent;
+  border-color: transparent;
+}
+
+.button.ghost:hover {
+  background: var(--surface-raised);
+}
+
 /* 关闭红点不受通用按钮 hover 背景影响（等特异性下靠后胜出）。 */
 .title-bar .window-close:hover {
   background: var(--danger);
@@ -200,27 +238,53 @@ body {
   font-size: var(--font-aux-size);
 }
 
-.button.wide {
-  width: 100%;
-}
+/* —— toolbar：通用横排；footer 变体 = 底部工具栏（高 44、--toolbar 底、1px 上分割线） —— */
 
 .toolbar {
   display: flex;
+  align-items: center;
   gap: var(--space-sm);
 }
 
-/* —— Tabs —— */
+.toolbar.footer {
+  min-height: 44px;
+  padding: 0 var(--space-md);
+  background: var(--toolbar);
+  border-top: 1px solid var(--border);
+}
+
+.toolbar .spacer {
+  flex: 1;
+}
+
+/* —— 主窗口顶部栏：Tab 列表 + 右上「+ 新增」 —— */
+
+.main-topbar {
+  display: flex;
+  align-items: stretch;
+  gap: var(--space-sm);
+  padding: 0 var(--space-md);
+  border-bottom: 1px solid var(--border);
+}
 
 .tab-bar {
   display: flex;
   gap: var(--space-sm);
-  border-bottom: 1px solid var(--border);
 }
 
+.main-topbar-spacer {
+  flex: 1;
+}
+
+.main-topbar .button.ghost {
+  align-self: center;
+}
+
+/* —— Tabs：当前项 text + 底部 2px accent 指示条，其余 text-dim —— */
+
 .tab-button {
-  padding: var(--space-sm) var(--space-md);
+  padding: var(--space-md) var(--space-md) var(--space-sm);
   border: none;
-  border-radius: var(--radius-ctl) var(--radius-ctl) 0 0;
   background: transparent;
   color: var(--text-dim);
   font: inherit;
@@ -233,7 +297,9 @@ body {
 }
 
 .tab-button.active {
-  color: var(--accent);
+  color: var(--text);
+  font-weight: 500;
+  box-shadow: inset 0 -2px 0 var(--accent);
 }
 
 .tab-content {
@@ -241,73 +307,141 @@ body {
   overflow: auto;
 }
 
-/* 主窗口三 Tab 内容区：统一 16 区块间距 */
+/* 主窗口三 Tab 内容区 */
 .tab-pane {
-  padding: var(--space-lg) var(--space-sm);
   display: flex;
   flex-direction: column;
-  gap: var(--space-lg);
 }
 
-/* —— 仪表盘卡片 —— */
-
-.dashboard-content {
+/* 表单占满整个 pane（flex 子项需要限定高度才能内部滚动） */
+.tab-pane > .reminder-form {
   flex: 1;
-  overflow: auto;
+  min-height: 0;
+}
+
+/* —— Row（v2 核心组件）：仪表盘与主窗口提醒页共用 ——
+   状态点 + 标题/摘要两行堆叠 + 右侧 switch；hover 提亮并淡出行尾图标按钮。 */
+
+.row-list {
   display: flex;
   flex-direction: column;
-  gap: var(--space-md);
 }
 
-.card-list {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-card);
-}
-
-/* 卡片：surface-raised 底、圆角 10、内边距 12；hover 边框提亮 */
-.card {
-  background: var(--surface-raised);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-card);
-  padding: var(--space-md);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-sm);
-  transition: border-color var(--dur) var(--ease);
-}
-
-.card:hover {
-  border-color: var(--border-hover);
-}
-
-.card-head {
+.row {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: var(--space-sm);
+  gap: var(--space-md);
+  min-height: 44px;
+  padding: 5px var(--space-lg);
+  border-bottom: 1px solid var(--border);
+  transition: background var(--dur) var(--ease);
 }
 
-.card-head h3 {
+.row:hover {
+  background: var(--surface-hover);
+}
+
+/* 焦点行：左侧 2px accent 竖条 */
+.row:focus-within {
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
+/* 行状态点：6px；启用 = --success，停用 = --text-dim */
+.row-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--text-dim);
+  flex: none;
+}
+
+.row-dot.on {
+  background: var(--success);
+}
+
+.row-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* 行标题：13/500 */
+.row-title {
   margin: 0;
-  font-size: var(--font-title-size);
-  font-weight: 600;
+  font-size: var(--font-body-size);
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.card p {
+/* 行摘要：11/400 text-dim，一行省略，数字等宽 */
+.row-subtitle {
   margin: 0;
-}
-
-.card-next {
   font-size: var(--font-aux-size);
   color: var(--text-dim);
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.card-actions {
+/* 行尾操作：hover / 焦点时才淡入（开关左侧） */
+.row-actions {
   display: flex;
-  gap: var(--space-sm);
-  justify-content: flex-end;
+  gap: 2px;
+  flex: none;
+  opacity: 0;
+  transition: opacity var(--dur) var(--ease);
+}
+
+.row:hover .row-actions,
+.row:focus-within .row-actions {
+  opacity: 1;
+}
+
+/* 图标按钮：16px 单色 SVG，text-dim，hover 提亮 */
+.icon-button {
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-ctl);
+  background: transparent;
+  color: var(--text-dim);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition:
+    color var(--dur) var(--ease),
+    background var(--dur) var(--ease);
+}
+
+.icon-button svg {
+  display: block;
+}
+
+.icon-button:hover {
+  color: var(--text);
+  background: var(--border);
+}
+
+/* —— 仪表盘行列表区 —— */
+
+.dashboard-content {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.dashboard-content > .reminder-form {
+  flex: 1;
+  min-height: 0;
 }
 
 /* —— 开关：44×24 胶囊自绘，滑块 20，开 = accent，150ms 滑动 —— */
@@ -362,6 +496,7 @@ body {
   grid-template-columns: repeat(2, 1fr);
   gap: var(--space-md);
   overflow: auto;
+  padding: var(--space-lg);
 }
 
 .form-row {
@@ -375,15 +510,35 @@ body {
   grid-column: 1 / -1;
 }
 
+/* 表单小节（重复/排程/触达）：11/600 text-dim 小节标题分隔，非边框盒子 */
+.form-section {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  padding-top: var(--space-sm);
+}
+
 .form-actions {
   grid-column: 1 / -1;
   display: flex;
   gap: var(--space-sm);
 }
 
+/* 字段标签：11/600 text-dim，置于控件上方 */
 .form-label {
   color: var(--text-dim);
   font-size: var(--font-aux-size);
+  font-weight: 600;
+}
+
+/* 分组小节标题：11/600 text-dim + 0.5px 字距（表单小节 / 历史分组 / 设置分组共用） */
+.group-title {
+  margin: 0;
+  font-size: var(--font-aux-size);
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  color: var(--text-dim);
 }
 
 .inline-group {
@@ -393,15 +548,13 @@ body {
   flex-wrap: wrap;
 }
 
-.sub-box {
+/* 小节内控件组：无框无底色，左侧缩进挂在小节标题下 */
+.sub-group {
   display: flex;
   align-items: center;
   gap: var(--space-sm);
   flex-wrap: wrap;
-  padding: var(--space-sm);
-  background: var(--surface-raised);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-card);
+  padding-left: var(--space-md);
 }
 
 /* 输入框：1px border 底、圆角 6；focus 边框 accent */
@@ -478,71 +631,78 @@ body {
   display: none;
 }
 
-/* —— 数据表格 —— */
+/* —— 历史时间线：日期分组头 + 单行（时间 + 状态点 + 标题） —— */
 
-.data-table {
-  width: 100%;
-  border-collapse: collapse;
+.timeline {
+  display: flex;
+  flex-direction: column;
 }
 
-.data-table th,
-.data-table td {
-  padding: var(--space-sm);
-  text-align: left;
-  border-bottom: 1px solid var(--border);
-  vertical-align: middle;
+.timeline .group-title {
+  padding: var(--space-md) var(--space-lg) var(--space-sm);
+}
+
+.timeline-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  min-height: 32px;
+  padding: 3px var(--space-lg);
+}
+
+/* 历史行时间：tabular、text-dim、定宽对齐 */
+.timeline-time {
+  font-size: var(--font-aux-size);
+  color: var(--text-dim);
   font-variant-numeric: tabular-nums;
+  flex: none;
+  width: 40px;
 }
 
-.data-table th {
-  color: var(--text-dim);
-  font-weight: 500;
-  font-size: var(--font-aux-size);
+/* 历史状态点：6px 语义色（fired/dismissed = 默认 text-dim） */
+.timeline-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--text-dim);
+  flex: none;
 }
 
-/* —— 历史状态徽标（语义色） —— */
-
-.status-badge {
-  display: inline-block;
-  padding: 2px var(--space-sm);
-  border-radius: var(--radius-ctl);
-  font-size: var(--font-aux-size);
-  line-height: 1.4;
+.timeline-dot.done {
+  background: var(--success);
 }
 
-.status-badge.fired {
-  color: var(--text-dim);
-  background: var(--border);
+.timeline-dot.snoozed {
+  background: var(--warning);
 }
 
-.status-badge.done {
-  color: var(--success);
-  background: color-mix(in srgb, var(--success) 16%, transparent);
+.timeline-dot.missed {
+  background: var(--danger);
 }
 
-.status-badge.dismissed {
-  color: var(--text-dim);
-  background: var(--border);
+.timeline-title {
+  margin: 0;
+  font-size: var(--font-body-size);
+  font-weight: 400;
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.status-badge.snoozed {
-  color: var(--warning);
-  background: color-mix(in srgb, var(--warning) 16%, transparent);
-}
+/* —— 设置：分组标题 + 行式开关 —— */
 
-.status-badge.missed {
-  color: var(--danger);
-  background: color-mix(in srgb, var(--danger) 16%, transparent);
+.settings-group .group-title {
+  padding: var(--space-lg) var(--space-lg) var(--space-sm);
 }
-
-/* —— 设置 —— */
 
 .setting-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-md);
-  padding: var(--space-sm);
+  padding: var(--space-sm) var(--space-lg);
   border-bottom: 1px solid var(--border);
 }
 
@@ -591,12 +751,12 @@ body {
 
 .view.popup {
   gap: var(--space-sm);
-  padding: var(--space-md) var(--space-md);
+  padding: var(--space-md) var(--space-lg);
   justify-content: center;
   overflow: hidden;
 }
 
-/* 弹窗自绘标题栏：标题（提醒名）+ 关闭按钮，整条可拖动。 */
+/* 弹窗自绘标题栏：● + 标题（13/500）+ 倒计时 + ✕，整条可拖动。 */
 .popup-header {
   display: flex;
   align-items: center;
@@ -608,7 +768,7 @@ body {
   flex: 1;
   min-width: 0;
   font-size: var(--font-title-size);
-  font-weight: 600;
+  font-weight: 500;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -622,15 +782,19 @@ body {
   overflow: hidden;
 }
 
+/* 操作行：高 40，次按钮（ghost）左、主按钮（accent）右置 */
 .popup-actions {
   display: flex;
   gap: var(--space-sm);
   align-items: center;
+  justify-content: space-between;
+  min-height: 40px;
 }
 
+/* 倒计时：tabular、text-dim，单行不换行 */
 .popup-countdown {
-  margin-left: auto;
-  font-size: var(--font-aux-size);
+  font-size: var(--font-body-size);
   font-variant-numeric: tabular-nums;
+  color: var(--text-dim);
   white-space: nowrap;
 }

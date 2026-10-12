@@ -24,31 +24,36 @@ export function popupView(): HTMLElement {
 
   const title = document.createElement("h2");
   title.className = "popup-title";
-  // 无边框弹窗自绘标题栏：标题整条可拖动，右侧关闭按钮（关闭同样汇聚 Destroyed 裁决）
+  // 无边框弹窗自绘标题栏：● + 标题（13/500）+ 倒计时 + ✕，整条可拖动；
+  // 关闭同样汇聚 Destroyed 裁决
   const titleBar = document.createElement("div");
   titleBar.className = "popup-header title-bar";
   titleBar.setAttribute("data-tauri-drag-region", "deep");
+  const dot = document.createElement("span");
+  dot.className = "status-dot attention";
+  dot.title = "提醒触发中";
   const closeButton = document.createElement("button");
   closeButton.type = "button";
   closeButton.className = "button small window-close";
   closeButton.textContent = "✕";
   closeButton.title = "关闭弹窗";
-  titleBar.append(title, closeButton);
-  const note = document.createElement("p");
-  note.className = "popup-note muted";
   const countdownLabel = document.createElement("span");
   countdownLabel.className = "popup-countdown muted";
+  titleBar.append(dot, title, countdownLabel, closeButton);
+  const note = document.createElement("p");
+  note.className = "popup-note muted";
+  // 操作行：「稍后」ghost 左置、「完成」accent 右置（v2 主按钮右置）
   const doneButton = document.createElement("button");
   doneButton.type = "button";
   doneButton.className = "button primary";
   doneButton.textContent = "完成";
   const snoozeButton = document.createElement("button");
   snoozeButton.type = "button";
-  snoozeButton.className = "button";
+  snoozeButton.className = "button ghost";
   snoozeButton.textContent = "稍后";
   const actions = document.createElement("div");
   actions.className = "popup-actions";
-  actions.append(doneButton, snoozeButton, countdownLabel);
+  actions.append(snoozeButton, doneButton);
   root.append(titleBar, note, actions);
 
   /** 停止倒计时展示并关窗（Rust 端 popup_action / AutoDismiss 也会关窗，此处兜底收尾）。 */
@@ -92,8 +97,10 @@ export function popupView(): HTMLElement {
     }
     if (detail.alert.kind === "force") {
       countdownLabel.textContent = "";
+      countdownLabel.hidden = true;
       return;
     }
+    countdownLabel.hidden = false;
     let left = detail.alert.seconds;
     countdownLabel.textContent = `${left} 秒后自动关闭`;
     countdown = window.setInterval(() => {

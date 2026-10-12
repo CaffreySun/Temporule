@@ -1,33 +1,36 @@
 /**
- * 主窗口视图：提醒（完整表格 + 新增/编辑/删除）/ 历史（表格，状态中文）/ 设置
- * （三个开关 + 数据目录展示 + 打开数据目录）。
+ * 主窗口视图（v2）：顶部栏 = Tab（当前项 text + 底部 2px accent 指示条，其余 text-dim）
+ * + 右上 ghost「+ 新增」。提醒页 = 行列表（v2 Row，同仪表盘）；历史页 = 时间线
+ * （日期分组头 + 行：时间 tabular + 状态点 + 标题）；设置页 = 分组（分组标题 11/600 +
+ * 行式开关）。
  * 组件约定：组件 = 一个返回 HTMLElement 的函数。
  */
 import {
   fetchHistory,
   fetchDataDir,
   fetchSettings,
-  formatDateTime,
   formatError,
-  getReminder,
   historyStatusLabel,
-  isSaveConflictError,
   listReminders,
   onStoreChanged,
   openDataDir,
-  removeReminder,
   requestNotificationPermission,
   saveAppSettings,
-  toggleReminder,
   type AppSettingsView,
   type ReminderDetail,
-  type ReminderView,
 } from "../api";
-import { alertDialog, confirmDialog } from "../components/dialog";
+import { alertDialog } from "../components/dialog";
 import { reminderForm } from "../components/reminder-form";
+import { reminderRow } from "../components/reminder-row";
 
-/** 历史表格展示上限。 */
+/** 历史展示上限。 */
 const HISTORY_LIMIT = 200;
+
+/** 提醒 Tab 句柄：供顶部「+ 新增」安全触发（表单挂载中为空操作，不吞未保存输入）。 */
+interface RemindersTabHandle {
+  /** 打开新增表单。 */
+  openNew: () => void;
+}
 
 /** Tab 配置：标题 + 激活时的重建函数（由 mainView 注入）。 */
 interface TabSpec {
@@ -35,8 +38,8 @@ interface TabSpec {
   id: string;
   /** Tab 中文标题。 */
   title: string;
-  /** 激活该 Tab 时重建内容。 */
-  refresh: (pane: HTMLElement) => void;
+  /** 激活该 Tab 时重建内容；提醒 Tab 返回句柄，其余返回 null。 */
+  refresh: (pane: HTMLElement) => RemindersTabHandle | null;
 }
 
 /** 一个 Tab 的完整句柄。 */
@@ -46,143 +49,8 @@ interface TabHandle {
   pane: HTMLElement;
 }
 
-/** 提醒表格行。 */
-function reminderRow(
-  reminder: ReminderView,
-  onEdit: (detail: ReminderDetail) => void,
-  onChanged: () => void,
-): HTMLTableRowElement {
-  const row = document.createElement("tr");
-  const titleCell = document.createElement("td");
-  titleCell.textContent = reminder.title;
-  if (reminder.note !== null && reminder.note !== "") {
-    titleCell.title = reminder.note;
-  }
-  const descCell = document.createElement("td");
-  descCell.className = "muted";
-  descCell.textContent = reminder.schedule_desc;
-  const enabledCell = document.createElement("td");
-  const toggleLabel = document.createElement("label");
-  toggleLabel.className = "switch";
-  const toggleInput = document.createElement("input");
-  toggleInput.type = "checkbox";
-  toggleInput.checked = reminder.enabled;
-  toggleInput.addEventListener("change", () => {
-    const enabled = toggleInput.checked;
-    toggleReminder(reminder.id, enabled)
-      .then(onChanged)
-      .catch((err: unknown) => {
-        toggleInput.checked = !enabled;
-        if (isSaveConflictError(err)) {
-          void alertDialog("数据已被外部修改，请重试").then(onChanged);
-        } else {
-          void alertDialog(formatError(err));
-        }
-      });
-  });
-  toggleLabel.append(toggleInput, document.createElement("span"));
-  enabledCell.append(toggleLabel);
-  const nextCell = document.createElement("td");
-  nextCell.textContent = formatDateTime(reminder.next_fire);
-  const actionsCell = document.createElement("td");
-  const editButton = document.createElement("button");
-  editButton.type = "button";
-  editButton.className = "button small";
-  editButton.textContent = "编辑";
-  editButton.addEventListener("click", () => {
-    getReminder(reminder.id)
-      .then(onEdit)
-      .catch((err: unknown) => {
-        void alertDialog(formatError(err));
-      });
-  });
-  const removeButton = document.createElement("button");
-  removeButton.type = "button";
-  removeButton.className = "button small danger";
-  removeButton.textContent = "删除";
-  removeButton.addEventListener("click", () => {
-    void confirmDialog(`确认删除「${reminder.title}」？`).then((confirmed) => {
-      if (confirmed) {
-        removeReminder(reminder.id)
-          .then(onChanged)
-          .catch((err: unknown) => {
-            void alertDialog(formatError(err));
-          });
-      }
-    });
-  });
-  actionsCell.append(editButton, removeButton);
-  row.append(titleCell, descCell, enabledCell, nextCell, actionsCell);
-  return row;
-}
-
-/** 提醒 Tab：表格 ↔ 表单 双态。 */
-function renderRemindersTab(pane: HTMLElement): void {
-  // 表单挂载期间不重建（store-changed / 切 Tab 均不吞未保存输入；保存/取消收尾时重建列表）
-  if (pane.querySelector("form.reminder-form") !== null) {
-    return;
-  }
-  const showTable = (): void => {
-    pane.replaceChildren();
-    const toolbar = document.createElement("div");
-    toolbar.className = "toolbar";
-    const addButton = document.createElement("button");
-    addButton.type = "button";
-    addButton.className = "button primary";
-    addButton.textContent = "+ 新增";
-    addButton.addEventListener("click", () => showForm(undefined));
-    toolbar.append(addButton);
-    const table = document.createElement("table");
-    table.className = "data-table";
-    const head = document.createElement("thead");
-    const headRow = document.createElement("tr");
-    for (const label of ["标题", "排程摘要", "启用", "下次触发", "操作"]) {
-      const th = document.createElement("th");
-      th.textContent = label;
-      headRow.append(th);
-    }
-    head.append(headRow);
-    const body = document.createElement("tbody");
-    table.append(head, body);
-    pane.append(toolbar, table);
-    body.textContent = "";
-    const loading = document.createElement("tr");
-    const loadingCell = document.createElement("td");
-    loadingCell.colSpan = 5;
-    loadingCell.className = "hint";
-    loadingCell.textContent = "加载中…";
-    loading.append(loadingCell);
-    body.append(loading);
-
-    listReminders()
-      .then((reminders) => {
-        body.replaceChildren();
-        if (reminders.length === 0) {
-          const empty = document.createElement("tr");
-          const emptyCell = document.createElement("td");
-          emptyCell.colSpan = 5;
-          emptyCell.className = "hint";
-          emptyCell.textContent = "暂无提醒，点击「+ 新增」创建第一条。";
-          empty.append(emptyCell);
-          body.append(empty);
-          return;
-        }
-        for (const reminder of reminders) {
-          body.append(reminderRow(reminder, (detail) => showForm(detail), showTable));
-        }
-      })
-      .catch((err: unknown) => {
-        body.replaceChildren();
-        const failed = document.createElement("tr");
-        const failedCell = document.createElement("td");
-        failedCell.colSpan = 5;
-        failedCell.className = "field-error";
-        failedCell.textContent = `加载失败：${formatError(err)}`;
-        failed.append(failedCell);
-        body.append(failed);
-      });
-  };
-
+/** 提醒 Tab：行列表 ↔ 表单 双态；表单挂载期间不重build（不吞未保存输入）。 */
+function renderRemindersTab(pane: HTMLElement): RemindersTabHandle {
   const showForm = (initial: ReminderDetail | undefined): void => {
     pane.replaceChildren(
       reminderForm({
@@ -193,78 +61,135 @@ function renderRemindersTab(pane: HTMLElement): void {
     );
   };
 
-  showTable();
+  const showTable = (): void => {
+    pane.replaceChildren();
+    const listBox = document.createElement("div");
+    listBox.className = "row-list";
+    const loading = document.createElement("p");
+    loading.className = "hint";
+    loading.textContent = "加载中…";
+    listBox.append(loading);
+    pane.append(listBox);
+
+    listReminders()
+      .then((reminders) => {
+        listBox.replaceChildren();
+        if (reminders.length === 0) {
+          const empty = document.createElement("p");
+          empty.className = "hint";
+          empty.textContent = "暂无提醒，点击「+ 新增」创建第一条。";
+          listBox.append(empty);
+          return;
+        }
+        for (const reminder of reminders) {
+          listBox.append(
+            reminderRow({
+              reminder,
+              onEdit: (detail) => showForm(detail),
+              onChanged: showTable,
+            }),
+          );
+        }
+      })
+      .catch((err: unknown) => {
+        listBox.replaceChildren();
+        const failed = document.createElement("p");
+        failed.className = "field-error";
+        failed.textContent = `加载失败：${formatError(err)}`;
+        listBox.append(failed);
+      });
+  };
+
+  // openNew 调用时实时检查表单挂起：表单挂载中不吞未保存输入
+  const openNew = (): void => {
+    if (pane.querySelector("form.reminder-form") === null) {
+      showForm(undefined);
+    }
+  };
+
+  // 表单挂载期间不重建（store-changed / 切 Tab 均不吞未保存输入；保存/取消收尾时重建列表）
+  if (pane.querySelector("form.reminder-form") === null) {
+    showTable();
+  }
+  return { openNew };
 }
 
-/** 历史 Tab：时间 / 标题 / 状态 / 计划触发，新→旧。 */
-function renderHistoryTab(pane: HTMLElement): void {
+/** RFC3339 → 「HH:MM」（本地时区）。 */
+function formatTime(iso: string): string {
+  const date = new Date(iso);
+  const pad = (value: number): string => String(value).padStart(2, "0");
+  return `${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+/** RFC3339 → 「MM-DD 周X」（本地时区，日期分组头）。 */
+function formatDateGroup(iso: string): string {
+  const date = new Date(iso);
+  const pad = (value: number): string => String(value).padStart(2, "0");
+  const weekdays = "日一二三四五六";
+  return `${pad(date.getMonth() + 1)}-${pad(date.getDate())} 周${weekdays[date.getDay()]}`;
+}
+
+/** 历史 Tab：时间线（日期分组头 + 行：时间 tabular + 状态点 + 标题），新→旧。 */
+function renderHistoryTab(pane: HTMLElement): null {
   pane.replaceChildren();
-  const table = document.createElement("table");
-  table.className = "data-table";
-  const head = document.createElement("thead");
-  const headRow = document.createElement("tr");
-  for (const label of ["时间", "标题", "状态", "计划触发"]) {
-    const th = document.createElement("th");
-    th.textContent = label;
-    headRow.append(th);
-  }
-  head.append(headRow);
-  const body = document.createElement("tbody");
-  table.append(head, body);
-  pane.append(table);
-  const loading = document.createElement("tr");
-  const loadingCell = document.createElement("td");
-  loadingCell.colSpan = 4;
-  loadingCell.className = "hint";
-  loadingCell.textContent = "加载中…";
-  loading.append(loadingCell);
-  body.append(loading);
+  const loading = document.createElement("p");
+  loading.className = "hint";
+  loading.textContent = "加载中…";
+  pane.append(loading);
 
   fetchHistory(HISTORY_LIMIT)
     .then((entries) => {
-      body.replaceChildren();
+      pane.replaceChildren();
       if (entries.length === 0) {
-        const empty = document.createElement("tr");
-        const emptyCell = document.createElement("td");
-        emptyCell.colSpan = 4;
-        emptyCell.className = "hint";
-        emptyCell.textContent = "暂无历史记录。";
-        empty.append(emptyCell);
-        body.append(empty);
+        const empty = document.createElement("p");
+        empty.className = "hint";
+        empty.textContent = "暂无历史记录。";
+        pane.append(empty);
         return;
       }
+      const timeline = document.createElement("div");
+      timeline.className = "timeline";
+      let lastGroup = "";
       for (const entry of [...entries].reverse()) {
-        const row = document.createElement("tr");
-        const atCell = document.createElement("td");
-        atCell.textContent = formatDateTime(entry.at);
-        const titleCell = document.createElement("td");
-        titleCell.textContent = entry.title;
-        const statusCell = document.createElement("td");
-        // 状态徽标：语义色（fired/dismissed=辅助、done=成功、snoozed=稍后、missed=错误）
-        const badge = document.createElement("span");
-        badge.className = `status-badge ${entry.status}`;
-        badge.textContent = historyStatusLabel(entry.status);
-        statusCell.append(badge);
-        const scheduledCell = document.createElement("td");
-        scheduledCell.textContent = formatDateTime(entry.scheduled_at);
-        row.append(atCell, titleCell, statusCell, scheduledCell);
-        body.append(row);
+        // 日期分组头（11/600 text-dim + 字距）
+        const group = formatDateGroup(entry.at);
+        if (group !== lastGroup) {
+          lastGroup = group;
+          const head = document.createElement("p");
+          head.className = "group-title";
+          head.textContent = group;
+          timeline.append(head);
+        }
+        // 行：时间（tabular, text-dim）+ 状态点（语义色）+ 标题，单行省略
+        const row = document.createElement("div");
+        row.className = "timeline-row";
+        const time = document.createElement("span");
+        time.className = "timeline-time";
+        time.textContent = formatTime(entry.at);
+        // 状态点：fired/dismissed = 默认 text-dim，done = 成功，snoozed = 稍后，missed = 错误
+        const dot = document.createElement("span");
+        dot.className = `timeline-dot ${entry.status}`;
+        dot.title = historyStatusLabel(entry.status);
+        const title = document.createElement("p");
+        title.className = "timeline-title";
+        title.textContent = entry.title;
+        row.append(time, dot, title);
+        timeline.append(row);
       }
+      pane.append(timeline);
     })
     .catch((err: unknown) => {
-      body.replaceChildren();
-      const failed = document.createElement("tr");
-      const failedCell = document.createElement("td");
-      failedCell.colSpan = 4;
-      failedCell.className = "field-error";
-      failedCell.textContent = `加载失败：${formatError(err)}`;
-      failed.append(failedCell);
-      body.append(failed);
+      pane.replaceChildren();
+      const failed = document.createElement("p");
+      failed.className = "field-error";
+      failed.textContent = `加载失败：${formatError(err)}`;
+      pane.append(failed);
     });
+  return null;
 }
 
-/** 设置 Tab：三个开关 + 数据目录只读展示 + 打开数据目录。 */
-function renderSettingsTab(pane: HTMLElement): void {
+/** 设置 Tab：分组（通用 / 声音 / 隐私与数据）+ 行式开关 + 数据目录。 */
+function renderSettingsTab(pane: HTMLElement): null {
   pane.replaceChildren();
   const loading = document.createElement("p");
   loading.className = "hint";
@@ -317,20 +242,16 @@ function renderSettingsTab(pane: HTMLElement): void {
         return row;
       };
 
-      pane.append(
-        settingSwitch(
-          "开机自启",
-          settings.launch_at_login,
-          (value) => persist({ ...settings, launch_at_login: value }),
-          "请确保 App 在 /Applications（登录项按安装路径启动）",
-        ),
-        settingSwitch("默认声音", settings.default_sound, (value) =>
-          persist({ ...settings, default_sound: value }),
-        ),
-        settingSwitch("仪表盘失焦隐藏", settings.dashboard_hide_on_blur, (value) =>
-          persist({ ...settings, dashboard_hide_on_blur: value }),
-        ),
-      );
+      /** 分组容器：分组标题（11/600 text-dim + 字距）+ 行。 */
+      const group = (title: string, rows: HTMLElement[]): HTMLElement => {
+        const box = document.createElement("div");
+        box.className = "settings-group";
+        const head = document.createElement("p");
+        head.className = "group-title";
+        head.textContent = title;
+        box.append(head, ...rows);
+        return box;
+      };
 
       // —— 通知权限：被拒后可在设置页重试请求，恢复调度器的系统通知分发
       const permRow = document.createElement("div");
@@ -366,6 +287,7 @@ function renderSettingsTab(pane: HTMLElement): void {
       });
       permRow.append(permCaption, permButton);
 
+      // —— 数据目录：只读展示 + 访达打开
       const dirRow = document.createElement("div");
       dirRow.className = "setting-row";
       const dirCaption = document.createElement("div");
@@ -386,7 +308,26 @@ function renderSettingsTab(pane: HTMLElement): void {
         });
       });
       dirRow.append(dirCaption, openButton);
-      pane.append(permRow, dirRow);
+
+      pane.append(
+        group("通用", [
+          settingSwitch(
+            "开机自启",
+            settings.launch_at_login,
+            (value) => persist({ ...settings, launch_at_login: value }),
+            "请确保 App 在 /Applications（登录项按安装路径启动）",
+          ),
+          settingSwitch("仪表盘失焦隐藏", settings.dashboard_hide_on_blur, (value) =>
+            persist({ ...settings, dashboard_hide_on_blur: value }),
+          ),
+        ]),
+        group("声音", [
+          settingSwitch("默认声音", settings.default_sound, (value) =>
+            persist({ ...settings, default_sound: value }),
+          ),
+        ]),
+        group("隐私与数据", [permRow, dirRow]),
+      );
     })
     .catch((err: unknown) => {
       pane.replaceChildren();
@@ -395,6 +336,7 @@ function renderSettingsTab(pane: HTMLElement): void {
       failed.textContent = `加载设置失败：${formatError(err)}`;
       pane.append(failed);
     });
+  return null;
 }
 
 /** 构建主窗口视图。 */
@@ -402,8 +344,19 @@ export function mainView(): HTMLElement {
   const root = document.createElement("section");
   root.className = "view main";
 
+  // 顶部栏：Tab 列表（左）+ 右上 ghost「+ 新增」（仅提醒页可见）
+  const topBar = document.createElement("div");
+  topBar.className = "main-topbar";
   const tabBar = document.createElement("nav");
   tabBar.className = "tab-bar";
+  const spacer = document.createElement("div");
+  spacer.className = "main-topbar-spacer";
+  const addButton = document.createElement("button");
+  addButton.type = "button";
+  addButton.className = "button ghost";
+  addButton.textContent = "+ 新增";
+  addButton.hidden = true;
+  topBar.append(tabBar, spacer, addButton);
   const content = document.createElement("div");
   content.className = "tab-content";
 
@@ -424,6 +377,9 @@ export function mainView(): HTMLElement {
     return { spec, button, pane };
   });
 
+  /** 提醒 Tab 句柄（供「+ 新增」触发；表单挂载中为空操作）。 */
+  let remindersHandle: RemindersTabHandle | null = null;
+
   /** 切换到指定 Tab 并重建其内容。 */
   const activate = (id: string): void => {
     for (const handle of handles) {
@@ -431,10 +387,15 @@ export function mainView(): HTMLElement {
       handle.pane.hidden = !active;
       handle.button.classList.toggle("active", active);
       if (active) {
-        handle.spec.refresh(handle.pane);
+        remindersHandle = handle.spec.refresh(handle.pane);
       }
     }
+    addButton.hidden = id !== "reminders";
   };
+
+  addButton.addEventListener("click", () => {
+    remindersHandle?.openNew();
+  });
 
   for (const handle of handles) {
     handle.button.addEventListener("click", () => activate(handle.spec.id));
@@ -444,12 +405,12 @@ export function mainView(): HTMLElement {
   onStoreChanged(() => {
     for (const handle of handles) {
       if (!handle.pane.hidden && handle.spec.id !== "settings") {
-        handle.spec.refresh(handle.pane);
+        remindersHandle = handle.spec.refresh(handle.pane) ?? remindersHandle;
       }
     }
   });
 
-  root.append(tabBar, content);
+  root.append(topBar, content);
   activate(specs[0]!.id);
   return root;
 }

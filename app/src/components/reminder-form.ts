@@ -79,6 +79,14 @@ function errorLine(): HTMLParagraphElement {
   return line;
 }
 
+/** 表单小节标题（11/600 text-dim + 字距；「重复」「排程」「触达」分组分隔）。 */
+function groupTitle(text: string): HTMLParagraphElement {
+  const title = document.createElement("p");
+  title.className = "group-title";
+  title.textContent = text;
+  return title;
+}
+
 /** 解析 HH:MM（兼容 H:MM 与 HH:MM:SS）→ 归一化 HH:MM；非法返回 null。 */
 function normalizeTime(raw: string): string | null {
   const match = /^(\d{1,2}):(\d{2})(?::(\d{2}))?$/.exec(raw.trim());
@@ -164,8 +172,8 @@ export function reminderForm(options: ReminderFormOptions): HTMLElement {
   }
   const repeatError = errorLine();
   const repeatSection = document.createElement("div");
-  repeatSection.className = "form-row";
-  repeatSection.append(repeatBox, weekdayBox, repeatError);
+  repeatSection.className = "form-section";
+  repeatSection.append(groupTitle("重复"), repeatBox, weekdayBox, repeatError);
 
   // —— 排程：每隔 N 分/时 + 时间窗；或 固定时刻列表
   const modeBox = document.createElement("div");
@@ -173,7 +181,7 @@ export function reminderForm(options: ReminderFormOptions): HTMLElement {
   const modeEvery = appendRadio(modeBox, "schedule-mode", "每隔", initial?.schedule_mode !== "at");
   const modeAt = appendRadio(modeBox, "schedule-mode", "固定时刻", initial?.schedule_mode === "at");
   const everyBox = document.createElement("div");
-  everyBox.className = "sub-box";
+  everyBox.className = "sub-group";
   const intervalInput = document.createElement("input");
   intervalInput.type = "number";
   intervalInput.className = "input narrow";
@@ -217,7 +225,7 @@ export function reminderForm(options: ReminderFormOptions): HTMLElement {
     windowEndInput,
   );
   const atBox = document.createElement("div");
-  atBox.className = "sub-box";
+  atBox.className = "sub-group";
   const timesInput = document.createElement("input");
   timesInput.type = "text";
   timesInput.className = "input";
@@ -226,8 +234,8 @@ export function reminderForm(options: ReminderFormOptions): HTMLElement {
   atBox.append(document.createTextNode("固定时刻："), timesInput);
   const scheduleError = errorLine();
   const scheduleSection = document.createElement("div");
-  scheduleSection.className = "form-row";
-  scheduleSection.append(modeBox, everyBox, atBox, scheduleError);
+  scheduleSection.className = "form-section";
+  scheduleSection.append(groupTitle("排程"), modeBox, everyBox, atBox, scheduleError);
 
   // —— 触达：系统通知（+声音）/ 弹窗（自动消失秒数 或 强制处理）
   const deliveryBox = document.createElement("div");
@@ -240,7 +248,7 @@ export function reminderForm(options: ReminderFormOptions): HTMLElement {
   );
   const deliveryPopup = appendRadio(deliveryBox, "delivery", "弹窗", initial?.delivery === "popup");
   const notificationBox = document.createElement("div");
-  notificationBox.className = "sub-box";
+  notificationBox.className = "sub-group";
   const soundLabel = document.createElement("label");
   soundLabel.className = "checkbox";
   const soundInput = document.createElement("input");
@@ -249,7 +257,7 @@ export function reminderForm(options: ReminderFormOptions): HTMLElement {
   soundLabel.append(soundInput, document.createTextNode("声音"));
   notificationBox.append(soundLabel);
   const popupBox = document.createElement("div");
-  popupBox.className = "sub-box";
+  popupBox.className = "sub-group";
   const popupAuto = appendRadio(
     popupBox,
     "popup-mode",
@@ -271,8 +279,8 @@ export function reminderForm(options: ReminderFormOptions): HTMLElement {
   );
   const deliveryError = errorLine();
   const deliverySection = document.createElement("div");
-  deliverySection.className = "form-row";
-  deliverySection.append(deliveryBox, notificationBox, popupBox, deliveryError);
+  deliverySection.className = "form-section";
+  deliverySection.append(groupTitle("触达"), deliveryBox, notificationBox, popupBox, deliveryError);
 
   // —— 稍后分钟数 / 错过补发
   const snoozeInput = document.createElement("input");

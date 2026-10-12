@@ -161,5 +161,6 @@
 ## 落地约束（不变）
 
 - token 化、动效 100–200ms ease-out 仅 hover/switch/弹层
+- **文案禁括号**：UI 文案一律不使用全角/半角括号；说明性内容用逗号或独立提示行（用户规则 2026-10-12）
 - 交互行为契约不因重设计改变：Tab 独立 pane + 表单挂起守卫、[hidden] 根治规则、
   store-changed / popup-replace / popup_action 事件链路

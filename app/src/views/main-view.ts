@@ -411,7 +411,8 @@ export function mainView(): HTMLElement {
     void appInfo().then((info) => aboutDialog(info.name, info.version));
   };
 
-  // 第一行：logo + 拾律 + 版本（可点开关于）
+  // 底部品牌区：三段纵向堆叠、水平居中
+  //   ① logo  ② 拾律 + 版本  ③ 关于拾律…
   const footer = document.createElement("div");
   footer.className = "sidebar-footer";
   const footerBrand = document.createElement("button");
@@ -435,16 +436,21 @@ export function mainView(): HTMLElement {
       // 版本号取不到不阻塞侧栏渲染
     });
   footerBrand.addEventListener("click", openAbout);
-  footerBrand.append(footerLogo, footerText, footerVersion);
+  footerBrand.append(footerLogo);
 
-  // 第二行：右对齐独立「关于拾律…」ghost 链接
+  // ② 名称 + 版本：同一行居中
+  const footerMeta = document.createElement("div");
+  footerMeta.className = "sidebar-footer-meta";
+  footerMeta.append(footerText, footerVersion);
+
+  // ③ 关于拾律…（居中 ghost 链接）
   const footerAbout = document.createElement("button");
   footerAbout.type = "button";
   footerAbout.className = "sidebar-footer-about";
   footerAbout.textContent = "关于拾律…";
   footerAbout.addEventListener("click", openAbout);
 
-  footer.append(footerBrand, footerAbout);
+  footer.append(footerBrand, footerMeta, footerAbout);
   sidebar.append(trafficPad, nav, footer);
 
   // 内容区：顶部 28px 红绿灯避让条（drag 可拖动）+ 页标题行 + pane 容器

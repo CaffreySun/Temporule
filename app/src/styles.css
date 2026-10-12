@@ -264,13 +264,14 @@ body {
   flex-direction: row;
 }
 
-/* 侧栏：180px 独立背景（比内容区深一档），与内容区 1px 分隔 */
+/* 侧栏：180px 独立背景（比内容区深一档），与内容区 1px 分隔
+   padding-x = 0：导航选中/hover 背景从侧栏左缘一直延伸到右缘（撑满整宽） */
 .sidebar {
   display: flex;
   flex-direction: column;
   flex: 0 0 180px;
   gap: var(--space-md);
-  padding: var(--space-md) var(--space-sm);
+  padding: var(--space-md) 0;
   background: var(--surface-side);
   border-right: 1px solid var(--border);
 }
@@ -280,27 +281,30 @@ body {
   flex: 0 0 28px;
 }
 
-/* 侧栏底部品牌区容器：第一行 logo+拾律+版本；第二行右对齐「关于拾律…」ghost 链接 */
+/* 侧栏底部品牌区容器：三段纵向堆叠（① logo ② 名称+版本 ③ 关于拾律…），全部水平居中 */
 .sidebar-footer {
   display: flex;
   flex-direction: column;
+  align-items: center;
   gap: var(--space-sm);
   margin-top: auto;
   padding: var(--space-md);
   border-top: 1px solid var(--border);
 }
 
-/* 品牌行（整块可点 = 「关于拾律」入口，hover 提亮） */
-.sidebar-footer-brand {
+/* 名称+版本：同一行居中，块间距 2px（紧凑贴合） */
+.sidebar-footer-meta {
   display: flex;
-  align-items: center;
-  gap: var(--space-sm);
+  align-items: baseline;
+  gap: 2px;
+}
+
+/* ① logo（可点 = 开关于面板，hover 提亮） */
+.sidebar-footer-brand {
   padding: 4px;
   border: none;
-  border-radius: var(--radius-ctl);
   background: transparent;
-  font: inherit;
-  text-align: left;
+  border-radius: var(--radius-ctl);
   cursor: pointer;
   transition: background-color var(--dur) var(--ease);
 }
@@ -316,28 +320,29 @@ body {
 
 /* 32×32 应用 logo（圆角 8，raised 衬底） */
 .sidebar-footer-logo {
+  display: block;
   width: 32px;
   height: 32px;
-  flex: 0 0 32px;
   border-radius: 8px;
   background: var(--surface-raised);
   object-fit: cover;
 }
 
-/* 「拾律」13/600 + 版本号 11/400 text-dim */
+/* 「拾律」13/600 */
 .sidebar-footer-name {
   font-size: var(--font-title-size);
   font-weight: 600;
 }
 
+/* 版本号 11/400 text-dim */
 .sidebar-footer-version {
   font-size: var(--font-aux-size);
   color: var(--text-dim);
 }
 
-/* 独立「关于拾律…」ghost 链接：11px text-dim，hover accent */
+/* 「关于拾律…」ghost 链接：移除之前的右对齐 */
 .sidebar-footer-about {
-  align-self: flex-end;
+  align-self: center;
   padding: 0;
   border: none;
   background: transparent;
@@ -357,15 +362,17 @@ body {
   outline-offset: 2px;
 }
 
-/* 导航行：32px 高、圆角 6；未选 text-dim 13/400；激活 = surface-hover 底 + accent 13/500 */
+/* 导航行：32px 高、圆角 6；未选 text-dim 13/400；激活 = surface-hover 底 + accent 13/500
+   宽度撑满侧栏（父级 padding-x=0）+ 圆角只在右缘 → 选中背景从左缘延续到右缘 */
 .nav-item {
   display: flex;
   align-items: center;
   gap: 8px;
+  width: 100%;
   height: 32px;
   padding: 0 var(--space-sm);
   border: none;
-  border-radius: var(--radius-ctl);
+  border-radius: 0 var(--radius-ctl) var(--radius-ctl) 0;
   background: transparent;
   color: var(--text-dim);
   font: inherit;

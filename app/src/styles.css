@@ -439,7 +439,10 @@ body.panel-rounded #app {
   display: flex;
   flex: 1;
   flex-direction: column;
-  overflow: auto;
+  /* 不在这里滚动：滚动下沉到各 pane（列表）或表单 body（表单），
+     否则页面级滚动会让表单 sticky 底栏随表单底部一起滚出视口 */
+  overflow: hidden;
+  min-height: 0;
 }
 
 .traffic-avoid {
@@ -470,10 +473,14 @@ body.panel-rounded #app {
   margin-bottom: var(--space-sm);
 }
 
-/* 主窗口三 Nav 内容区 */
+/* 主窗口三 Nav 内容区：占满剩余高度，内部各自滚动（列表 pane 滚动；
+   表单 pane 不滚——表单 body 内部滚动、底栏常驻） */
 .tab-pane {
   display: flex;
   flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
 }
 
 /* 表单占满整个 pane（flex 子项需要限定高度才能内部滚动） */
@@ -673,7 +680,7 @@ body.panel-rounded #app {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: var(--space-md) var(--space-lg) var(--space-sm);
+  padding: 16px 20px 12px;
 }
 
 .form-title {
@@ -688,15 +695,15 @@ body.panel-rounded #app {
   line-height: 1;
 }
 
-/* 主体字段列：行间 --space-md，分组间由 .form-section 顶部补 4px = --space-lg */
+/* 主体字段列：行间 --space-lg，分组自然拉开；两侧留白 20 */
 .form-body {
   flex: 1;
   min-height: 0;
   overflow: auto;
   display: flex;
   flex-direction: column;
-  gap: var(--space-md);
-  padding: 0 var(--space-lg) var(--space-lg);
+  gap: var(--space-lg);
+  padding: 4px 20px var(--space-lg);
 }
 
 .form-row {
@@ -709,7 +716,7 @@ body.panel-rounded #app {
 .form-section {
   display: flex;
   flex-direction: column;
-  gap: var(--space-md);
+  gap: 14px;
 }
 
 .form-section + .form-section {
@@ -753,8 +760,8 @@ body.panel-rounded #app {
 .sub-group {
   display: flex;
   flex-direction: column;
-  gap: var(--space-sm);
-  margin: 0;
+  gap: 10px;
+  margin: 2px 0 0;
   padding-left: var(--space-md);
   border-left: 2px solid var(--accent);
 }

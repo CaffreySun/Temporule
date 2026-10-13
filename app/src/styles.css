@@ -759,6 +759,12 @@ body.panel-rounded #app {
   border-left: 2px solid var(--accent);
 }
 
+/* 子配置内的成对控件（如 稍后提醒的「10 分钟」）：横向成对，对齐 .pair-controls */
+.sub-group.pair-controls {
+  flex-direction: row;
+  align-items: center;
+}
+
 /* 分段控件：容器圆角 6 + 1px border，内按钮均分；
    选中 = surface-raised 底 + text 字（复用 .radio/.chip 选中态视觉），切换 150ms。 */
 .segmented {

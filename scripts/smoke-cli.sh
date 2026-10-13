@@ -11,8 +11,8 @@ BIN="$ROOT/target/debug/temporule"
 
 step() { echo "── $*"; }
 
-step "add（提肛：每天 9-18 点每 2 小时弹窗）"
-"$BIN" add --title 提肛 --daily --every 2h --window 9:00-18:00 --popup --auto-dismiss 30
+step "add（活动提醒：每天 9-18 点每 2 小时弹窗）"
+"$BIN" add --title 活动提醒 --daily --every 2h --window 9:00-18:00 --popup --auto-dismiss 30
 
 step "add（喝水：通知 + 声音）"
 "$BIN" add --title 喝水 --daily --every 1h --window 9:00-18:00 --notification --sound
@@ -35,8 +35,8 @@ ID3="$("$BIN" list --json | python3 -c 'import json,sys; print([r["id"] for r in
 "$BIN" disable "$ID3"
 "$BIN" enable "$ID3"
 
-step "snooze（提肛 +10 分钟）"
-ID1="$("$BIN" list --json | python3 -c 'import json,sys; print([r["id"] for r in json.load(sys.stdin) if r["title"]=="提肛"][0])')"
+step "snooze（活动提醒 +10 分钟）"
+ID1="$("$BIN" list --json | python3 -c 'import json,sys; print([r["id"] for r in json.load(sys.stdin) if r["title"]=="活动提醒"][0])')"
 "$BIN" snooze "$ID1" 10m
 
 step "history"

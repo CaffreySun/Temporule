@@ -6,7 +6,7 @@ macOS 菜单栏常驻的周期提醒应用：状态栏图标 → 悬浮仪表盘
 
 ## 功能
 
-- 每天 9:00–18:00 每 2 小时提醒「提肛」，每 1 小时提醒「喝水」
+- 每天 9:00–18:00 每 2 小时提醒「活动提醒」，每 1 小时提醒「喝水」
 - 每周指定星期、固定时刻提醒（如每周一 9:00 开会）
 - 两种触达：系统通知（可带声音）；置顶弹窗（可配置自动消失时长，或强制手动处理）
 - 菜单栏悬浮仪表盘：运行状态一览、新增/编辑/启停提醒、打开主窗口
@@ -38,7 +38,7 @@ make install-cli  # symlink 到 brew prefix 或 ~/.local/bin
 
 ```bash
 temporule list [--json]            # 列出提醒与下次触发时间
-temporule add --title 提肛 --daily --every 2h --window 9:00-18:00 --popup --auto-dismiss 30
+temporule add --title 活动提醒 --daily --every 2h --window 9:00-18:00 --popup --auto-dismiss 30
 temporule add --title 喝水 --daily --every 1h --window 9:00-18:00 --notification --sound
 temporule add --title 周会 --weekly mon,wed --at 9:00 --notification
 temporule edit <id> --every 45m    # 部分更新（id 支持唯一前缀）

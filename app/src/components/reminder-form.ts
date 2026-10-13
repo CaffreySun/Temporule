@@ -162,7 +162,7 @@ export function reminderForm(options: ReminderFormOptions): HTMLElement {
   const titleInput = document.createElement("input");
   titleInput.type = "text";
   titleInput.className = "input";
-  titleInput.placeholder = "例如：提肛运动";
+  titleInput.placeholder = "例如：每小时站起来活动一下";
   titleInput.value = initial?.title ?? "";
   const titleError = errorLine();
   const noteInput = document.createElement("textarea");

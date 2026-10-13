@@ -34,3 +34,8 @@ if (viewParam === "popup") {
       break;
   }
 }
+
+// 原生应用语义：禁用 WebView 右键上下文菜单（默认会出现 Reload 等网页项）
+document.addEventListener("contextmenu", (event) => {
+  event.preventDefault();
+});

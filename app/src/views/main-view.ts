@@ -399,9 +399,10 @@ export function mainView(): HTMLElement {
   const root = document.createElement("section");
   root.className = "view main";
 
-  // 左侧边栏：顶部红绿灯占位 + 三导航行 + 底部品牌区（logo 行 + 独立「关于拾律…」链接）
+  // 左侧边栏：整体可拖动窗口（deep：交互控件按钮自动豁免，导航/品牌点击不受影响）
   const sidebar = document.createElement("aside");
   sidebar.className = "sidebar";
+  sidebar.setAttribute("data-tauri-drag-region", "deep");
   const trafficPad = document.createElement("div");
   trafficPad.className = "sidebar-traffic-pad";
   const nav = document.createElement("nav");
@@ -461,6 +462,7 @@ export function mainView(): HTMLElement {
   avoidBar.setAttribute("data-tauri-drag-region", "deep");
   const contentHead = document.createElement("div");
   contentHead.className = "content-head";
+  contentHead.setAttribute("data-tauri-drag-region", "deep");
   const pageTitle = document.createElement("h1");
   pageTitle.className = "page-title";
   const headSpacer = document.createElement("div");

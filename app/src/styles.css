@@ -68,6 +68,17 @@ body {
     sans-serif;
   font-size: var(--font-body-size);
   font-weight: 400;
+  /* 原生应用语义：界面文本不可拖拽选中，仅输入控件内可选取 */
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* 输入控件恢复可选取（标题/备注/时刻等输入框） */
+.input,
+input,
+textarea {
+  user-select: text;
+  -webkit-user-select: text;
 }
 
 /* 无边框悬浮面板（仪表盘/弹窗）：透明窗口 + CSS 圆角
